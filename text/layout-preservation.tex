@@ -5,47 +5,49 @@ Once all the issues surrounding correctness, analyses, preconditions and so on
 are sorted out, then from an implementation perspective, a refactoring is most
 naturally thought of as a transformation on abstract syntax trees -- for
 instance, a refactoring like "extract method" can be boiled down to steps like
-"move this statement from this function to that one", "synthesize a new function
-call and insert it at this position in the function's body", and so on. Given this,
-a natural structure for a refactoring tool consists of parsing code, then performing
-transformations on its AST, and then pretty printing the transformed AST to retrieve
-source code to present to the programmer. Many refactoring tools -- particularly
-ones developed for research purposes -- operate this way.
+"move this statement from this function to that one", "synthesize a new
+function call and insert it at this position in the function's body", and so
+on. Given this, a natural structure for a refactoring tool consists of parsing
+code, then performing transformations on its AST, and then pretty printing the
+transformed AST to retrieve source code to present to the programmer. Many
+refactoring tools -- particularly ones developed for research purposes --
+operate this way.
 
-The problem with such approaches is that by construction the AST does not contain
-enough information to accurately reconstruct the input source code. Typically
-among the casualties are whitespace, comments and syntactic sugar. If a particular
-construct is not sensitive to order, then order is frequently lost. For example,
-in MATLAB, nested functions can appear anywhere inside a function but their position
-and order don't matter. In the McLab AST, is it not straightforward to get at the
-program point at which a nested function was declared, and the pretty printer simply
-moves all nested functions to the bottom of their enclosing function.
+The problem with such approaches is that by construction the AST does not
+contain enough information to accurately reconstruct the input source code.
+Typically among the casualties are whitespace, comments, and syntactic sugar.
 
-\figref{Fig:LostLayout} shows a MATLAB program and the result of parsing and then
-pretty-printing it using the McLab toolkit. The two programs are behaviorally
-equivalent, but contain many syntactic differences.
+\figref{Fig:LostLayout} shows a \matlab program and the result of parsing and
+then pretty-printing it using the \mclab toolkit. The two programs are
+behaviorally equivalent, but contain many syntactic differences. The comment
+associated with the \code{cube} function has moved below the header. The
+four-space indentation has been changed to two-space indentation. Each binary
+expression has been wrapped in parentheses.  The output parameters have been
+wrapped in square brackets.  The nested function \code{square} has been moved
+-- in \matlab, nested functions have the same scope irrespective of where they
+are declared; as a simplification, the Natlab translation moves nested
+functions to the bottom of their enclosing function.
 
 \begin{figure}
 \begin{minipage}{0.5\linewidth}
 \begin{lstlisting}[numbers=none]
 % cube takes a number x and returns its cube.
 function y = cube(x)
-  % This is a nested function that computes the square of a value.
-  function v = square(u)
-    v = u * u;
-  end
-  y = x * square(x);
+    % This is a nested function that computes the square of a value.
+    function v = square(u)
+        v = u * u;
+    end
+    y = x * square(x);
 end
 \end{lstlisting}
 \end{minipage}
-\hfill
-\hspace{.3cm}
-\hfill
+\hfill \hspace{.3cm} \hfill
 \begin{minipage}{0.5\linewidth}
 \begin{lstlisting}[numbers=none]
-function [y] = cube(x)
-% cube takes a number x and returns its cube.
-% This is a nested function that computes the square of a value.
+function
+  [y] = cube(x)
+  % cube takes a number x and returns its cube.  This is a nested function that
+  % computes the square of a value.
   y = (x * square(x));
   function [v] = square(u)
     v = (u * u);
@@ -57,47 +59,48 @@ end
 \label{Fig:LostLayout}
 \end{figure}
 
-Users of an automated refactoring tool are unlikely to be accepting of such invasive
-changes to a program's text. As such, it is important for the tool to be aware of
-the layout of the program when performing refactorings. For a given AST
-transformation, it should endeavor to perform the minimal textual changes needed
-to reflect the transformation in the program text. In particular, unaffected
-portions of the program should not undergo any textual changes.
+Users of an automated refactoring tool are unlikely to be accepting of such
+invasive changes to a program's text. As such, it is important for the tool to
+be aware of the layout of the program when performing refactorings. For a given
+AST transformation, it should endeavor to perform the minimal textual changes
+needed to reflect the transformation in the program text. In particular,
+unaffected portions of the program should not undergo any textual changes.
 
 Despite this, it is still convenient to express refactorings as tree
 transformations. Refactorings would be much harder to implement and maintain if
-they had to be expressed as textual transformations, or as a mixture of tree and
-text transformations that had to be kept in sync.
+they had to be expressed as textual transformations, or as a mixture of tree
+and text transformations that had to be kept in sync.
 
-Our goal is to be able to implement refactorings purely as tree transformations,
-and to have minimal textual changes automatically computed from them. In order
-to accomplish this, we introduce a simple transformation API, which exposes a
-small set of tree manipulation operations. Instead of directly manipulating AST
-nodes, refactorings are implemented in terms of this API. Behind the scenes, the
-implementation of the API includes logic that keeps track the input program text
-in addition to the AST, and keeps the two in sync.
+Our goal is to be able to implement refactorings purely as tree
+transformations, and to have minimal textual changes automatically computed
+from them. In order to accomplish this, we introduce a simple transformation
+API, which exposes a small set of tree manipulation operations. Instead of
+directly manipulating AST nodes, refactorings are implemented in terms of this
+API. Behind the scenes, the implementation of the API includes logic that keeps
+track the input program text in addition to the AST, and keeps the two in sync.
 
 -------
 
 Related work (TODO flesh this out)
 
-The work that most closely resembles ours is HaRe, a refactoring tool for Haskell.
-It uses a similar approach of synchronizing an AST with a token stream in order
-to pretty print refactored programs.
+The work that most closely resembles ours is HaRe, a refactoring tool for
+Haskell.  It uses a similar approach of synchronizing an AST with a token
+stream in order to pretty print refactored programs.
 
-Waddington and Yao [LDTA '05] tackled the same problem, which termed "the problem
-of style disruption", with Proteus, their refactoring tool for C and C++. Their
-approach to use a specialized AST called a "Literal-Layout AST (LL-AST)", where
-literals token and whitespace nodes are interspersed alongside the regular nodes.
+Waddington and Yao [LDTA '05] tackled the same problem, which termed "the
+problem of style disruption", with Proteus, their refactoring tool for C and
+C++. Their approach to use a specialized AST called a "Literal-Layout AST
+(LL-AST)", where literals token and whitespace nodes are interspersed alongside
+the regular nodes.
 
-* RefactorErl
-* That Scala refactoring guy
+* RefactorErl * That Scala refactoring guy
 
-The Eclipse JDT contains infrastructure for modifying code at two levels --
-a lower-level API for describing text manipulation primitives, and a higher-level
-AST rewriting API, which accepts descriptions of changes to AST nodes and uses the
-text manipulation API to try and perform the textual changes required to represent
-the AST changes. The approach is similar to ours in spirit; one big difference is
-that since that our approach is implemented largely a standalone tool, we rely
-solely on lexing and parsing as primitives, while Eclipse's implementation
-benefits from more sophisticated integration with a scriptable text editor.
+The Eclipse JDT contains infrastructure for modifying code at two levels -- a
+lower-level API for describing text manipulation primitives, and a higher-level
+AST rewriting API, which accepts descriptions of changes to AST nodes and uses
+the text manipulation API to try and perform the textual changes required to
+represent the AST changes. The approach is similar to ours in spirit; one big
+difference is that since that our approach is implemented largely a standalone
+tool, we rely solely on lexing and parsing as primitives, while Eclipse's
+implementation benefits from more sophisticated integration with a scriptable
+text editor.
