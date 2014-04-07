@@ -1,5 +1,3 @@
-\section{Layout preserving refactorings}
-
 A refactoring is a code transformation that changes the structure of the code
 while preserving its semantics.
 
@@ -23,9 +21,41 @@ and order don't matter. In the McLab AST, is it not straightforward to get at th
 program point at which a nested function was declared, and the pretty printer simply
 moves all nested functions to the bottom of their enclosing function.
 
-Figure 1 shows a MATLAB program and the result of parsing and then pretty-printing
-it using the McLab toolkit. The two programs are behaviorally equivalent, but
-contain many syntactic differences.
+\figref{Fig:LostLayout} shows a MATLAB program and the result of parsing and then
+pretty-printing it using the McLab toolkit. The two programs are behaviorally
+equivalent, but contain many syntactic differences.
+
+\begin{figure}
+\begin{minipage}{0.5\linewidth}
+\begin{lstlisting}[numbers=none]
+% cube takes a number x and returns its cube.
+function y = cube(x)
+  % This is a nested function that computes the square of a value.
+  function v = square(u)
+    v = u * u;
+  end
+  y = x * square(x);
+end
+\end{lstlisting}
+\end{minipage}
+\hfill
+\hspace{.3cm}
+\hfill
+\begin{minipage}{0.5\linewidth}
+\begin{lstlisting}[numbers=none]
+function [y] = cube(x)
+% cube takes a number x and returns its cube.
+% This is a nested function that computes the square of a value.
+  y = (x * square(x));
+  function [v] = square(u)
+    v = (u * u);
+  end
+end
+\end{lstlisting}
+\end{minipage}
+\caption{An example of the lossy parsing and unparsing roundtrip.}
+\label{Fig:LostLayout}
+\end{figure}
 
 Users of an automated refactoring tool are unlikely to be accepting of such invasive
 changes to a program's text. As such, it is important for the tool to be aware of
