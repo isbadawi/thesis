@@ -1,0 +1,37 @@
+
+\matlab is a dynamic scientific language used by scientists, engineers and
+students worldwide.  Although \matlab is very suitable for rapid prototyping
+and development,  \matlab users
+often want to convert their final \matlab programs to a static language such as {\sc
+FORTRAN}, to integrate them into already existing programs of that language,
+to leverage the performance of powerful static compilers, or to 
+ease the distribution of executables.
+
+This thesis presents an extensible object-oriented toolkit to help
+facilitate the generation of static programs from dynamic \matlab
+programs.  Our open source toolkit, called the \matlab Tamer, targets
+a large subset of \matlab. Given information about the entry point of
+the program, the \matlab Tamer builds a complete callgraph, transforms
+every function into a reduced intermediate representation, and
+provides typing information to aid the generation of static code.
+
+In order to provide this functionality, we need to handle a large
+number of \matlab builtin functions. Part of the Tamer framework is
+the builtin framework, an extensible toolkit which provides a
+principled approach to handle a large number of builtin functions.  To
+build the callgraph, we provide an interprocedural analysis framework,
+which can be used to implement full-program analyses.  Using this
+interprocedural framework, we have developed value analysis, an extensible
+interprocedural analysis to estimate \matlab types, which helps
+discover the call edges needed to build the call graph.
+
+In order to make the static analyses even possible, we disallow a
+small number of \matlab constructs and features, but attempt to
+support as large a subset of \matlab as possible.  Thus, by both
+slightly restricting \matlab, and by providing a framework with
+powerful analyses and simplifying transformations, we can
+``Tame \matlab''.
+
+
+
+
