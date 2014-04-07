@@ -1,10 +1,6 @@
 .SUFFIXES:
 .SUFFIXES: .fig
 
-#FIGS=$(wildcard images/figs/*.fig)
-#OUT_PDF=$(FIGS:fig=pdf)
-#OUT_EPS=$(FIGS:fig=eps)
-
 all: pdf
 
 pdfa: thesis_pdfa.pdf
@@ -21,14 +17,11 @@ thesis.pdf: thesis.ps
 thesis.ps: thesis.dvi
 	dvips -Ppdf -G0 -o thesis.ps thesis.dvi
 
-#thesis.dvi: figs *.tex text/*.tex
 thesis.dvi:  *.tex text/*.tex
 	latex thesis.tex < /dev/null
 	bibtex thesis
 	latex thesis < /dev/null
 	latex thesis < /dev/null
-
-#figs: $(OUT_PDF) $(OUT_EPS) copyfigs
 
 copyfigs:
 	cp images/figs/*.pdf images/
