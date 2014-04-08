@@ -1,17 +1,36 @@
 A refactoring is a code transformation that changes the structure of the code
-while preserving its semantics.
+while preserving its semantics, and can often naturally be thought of as a
+transformation over the structure of an abstract syntax tree. However, from
+the perspective of a programmer using a refactoring tool, a refactoring is
+ultimately a textual transformation. It is important to reconcile these two
+conceptions of refactorings; purely working in terms of ASTs, while
+technically correct from a semantics perspective, is apt to lose a lot of
+of information about the textual layout of the code, while purely working
+in terms of text is apt to make implementations of individual refactorings
+very brittle, hard to reason about, and hard to maintain.
 
-Once all the issues surrounding correctness, analyses, preconditions and so on
-are sorted out, then from an implementation perspective, a refactoring is most
-naturally thought of as a transformation on abstract syntax trees -- for
+In this chapter, we present our approach to making refactorings layout
+preserving.  We allow refactorings to be implemented in terms of a minimal tree
+transformation API, which hides the mechanics of layout preservation. As
+refactoring writers specify tree-level edits, minimal text-level edits are
+transparently computed from them. This simplifies the implementations of
+individual refactorings, allowing them to remain oblivious to the program text,
+while making them directly usable by end-users.
+
+\section{Motivation}
+
+Once all the issues surrounding semantics-preservation -- running required
+analyses, checking required preconditions, and so on -- are sorted out,
+then from an implementation perspective, a refactoring is most
+naturally thought of as a transformation on abstract syntax trees. For
 instance, a refactoring like "extract method" can be boiled down to steps like
 "move this statement from this function to that one", "synthesize a new
 function call and insert it at this position in the function's body", and so
 on. Given this, a natural structure for a refactoring tool consists of parsing
 code, then performing transformations on its AST, and then pretty printing the
 transformed AST to retrieve source code to present to the programmer. Many
-refactoring tools -- particularly ones developed for research purposes --
-operate this way.
+refactoring tools -- particularly ones developed for research purposes, where
+practicality is often a non-goal -- operate this way.
 
 The problem with such approaches is that by construction the AST does not
 contain enough information to accurately reconstruct the input source code.
@@ -79,9 +98,54 @@ directly manipulating AST nodes, refactorings are implemented in terms of this
 API. Behind the scenes, the implementation of the API includes logic that keeps
 track the input program text in addition to the AST, and keeps the two in sync.
 
--------
+\section{Synchronizing ASTs and token streams}
 
-Related work (TODO flesh this out)
+At a high level, our approach to layout preservation works as follows. Given a
+\matlab source file, we start by tokenizing the source code using a \matlab
+lexer, yielding a stream of tokens. Alongside the token stream, we use a
+\matlab parser to parse the same source file, yielding an abstract syntax tree.
+Our aim is to allow refactoring writers to specify edits to the abstract syntax
+tree, and to have those edits be transparently reflected in the token stream.
+In the end, when the time comes to present the transformed source back to the
+user, we can simply concatenate all the tokens instead of pretty printing the
+AST.
+
+In order for this to work, there are two "primitives" that we rely on. First,
+we need to be able to identify, for a particular AST node (which may be a node
+from the original program, or a copy of a node, or a brand new synthesized
+node), the portion of the token stream corresponding to that node. Second, we
+need to be able to make local modifications to just that portion of the stream,
+without compromising our ability to later look up nodes in the modified stream.
+
+To bridge the gap between the token stream and the AST, we use position
+information. Each token consists of a fragment of text together with a line and
+column position where it occurs in the source code. Each AST node, assuming it
+was produced by the parsing process and not manually synthesized after the
+fact, also contains position information. As an initial link between the source
+text and the AST, we can simply create a table that maps line and column
+positions to the corresponding token in the stream. When we need to retrieve
+the portion of the token stream for a given node, we can simply look up the
+token corresponding to its start position, look up the node token corresponding
+to its end position, and take all the tokens in between.
+
+One potential complication here is that the mapping could become stale as the
+token stream is modified. For instance, if we were to simply keep an array of
+tokens and map positions to indices into the array, then as the stream is
+edited and tokens are shifted around, indices would no longer point to the same
+token. In some cases we may be able to update the mapping as we edit the
+stream, but that approach quickly becomes brittle and hard to reason about.
+
+In order to avoid this complication, and also to satisfy our requirement of
+supporting local edits to the token stream, it is necessary to carefully
+consider the data structure we will use to represent the token stream. A
+natural choice is a doubly linked list. The values in our table can be
+references to individual nodes in the list, which will remain valid even as
+their positions within the list change. Also, since each node contains a
+reference to its predecessor and successor within the list, we can cheaply
+support edits like removing a sequence of tokens, or inserting a sequence of
+tokens before or after a particular token.
+
+\section{Related work}
 
 The work that most closely resembles ours is HaRe, a refactoring tool for
 Haskell.  It uses a similar approach of synchronizing an AST with a token
@@ -94,6 +158,7 @@ C++. Their approach to use a specialized AST called a "Literal-Layout AST
 the regular nodes.
 
 * RefactorErl * That Scala refactoring guy
+
 
 The Eclipse JDT contains infrastructure for modifying code at two levels -- a
 lower-level API for describing text manipulation primitives, and a higher-level
