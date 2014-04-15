@@ -4,7 +4,7 @@ transformation over the structure of an abstract syntax tree. However, from
 the perspective of a programmer using a refactoring tool, a refactoring is
 ultimately a textual transformation. It is important to reconcile these two
 conceptions of refactorings; purely working in terms of ASTs, while
-technically correct from a semantics perspective, is apt to lose a lot of
+technically correct from a semantics perspective, is apt to lose a lot
 of information about the textual layout of the code, while purely working
 in terms of text is apt to make implementations of individual refactorings
 very brittle, hard to reason about, and hard to maintain.
@@ -63,10 +63,9 @@ end
 \hfill \hspace{.3cm} \hfill
 \begin{minipage}{0.5\linewidth}
 \begin{lstlisting}[numbers=none]
-function
-  [y] = cube(x)
-  % cube takes a number x and returns its cube.  This is a nested function that
-  % computes the square of a value.
+function [y] = cube(x)
+  % cube takes a number x and returns its cube.
+  % This is a nested function that computes the square of a value.
   y = (x * square(x));
   function [v] = square(u)
     v = (u * u);
@@ -144,6 +143,47 @@ their positions within the list change. Also, since each node contains a
 reference to its predecessor and successor within the list, we can cheaply
 support edits like removing a sequence of tokens, or inserting a sequence of
 tokens before or after a particular token.
+
+That suffices for correlating the token stream with the AST of the original
+source text, but we need to be able to maintain this mapping as the token
+stream is edited, code is moved around or copied, and new code is synthesized.
+
+\section{Dealing with freshly synthesized code}
+
+It is common for refactorings to insert new code into the program which wasn't
+present in the original source text. For example, in the case of extract
+method, a new function call is synthesized to replace the extracted statements,
+a new function is synthesized to hold them, and that new function might also
+contain some synthetic statements like global variable declaration to ensure
+semantics are preserved. These pose a problem since there is no original text
+to tokenize in this case.
+
+The natural intuition is to somehow leverage the output of the pretty printer
+to recover some text that we may integrate into the token stream. If we simply
+pretty print the new AST, we get a program fragment as a string that we can
+then feed to the lexer. However, since these synthetic AST nodes don't have
+position information, we can't easily associate nodes with their portion of the
+token stream. We can associate the top-level tree with the entire fragment, but
+subtrees pose a problem.
+
+One way to deal with this would be to pretty print the new AST to recover the
+program text, then parse the text again to get back an AST that has position
+information, and then proceed as before. This is viable, but it implies that
+all new nodes would have to be synthesized through the tree transformation API
+-- nodes that are synthesized by the caller directly couldn't be used, since
+they wouldn't have the necessary position information.
+
+In the interest of keeping the API surface small, we instead implement a
+tokenizing pretty printer, which is a version of the pretty printer that emits
+sequences of tokens instead of entire strings. This can implemented as a
+straightforward recursive traversal of the AST; for each node, we synthesize a
+sequence of tokens, and at the same time associate that sequence with the node
+for later use.
+
+Given this, we can now look up the relevant portion of a token stream for a node
+by first checking if it has a fragment explicitly associated with it by the
+pretty printer, and otherwise using its position information to look it up in
+our original mapping.
 
 \section{Related work}
 
