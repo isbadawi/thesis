@@ -25,7 +25,7 @@ then from an implementation perspective, a refactoring is most
 naturally thought of as a transformation on abstract syntax trees. For
 instance, a refactoring like "extract method" can be boiled down to steps like
 "move this statement from this function to that one", "synthesize a new
-function call and insert it at this position in the function's body", and so
+function call", and "replace that statement with this one", and so
 on. Given this, a natural structure for a refactoring tool consists of parsing
 code, then performing transformations on its AST, and then pretty printing the
 transformed AST to retrieve source code to present to the programmer. Many
@@ -144,7 +144,7 @@ reference to its predecessor and successor within the list, we can cheaply
 support edits like removing a sequence of tokens, or inserting a sequence of
 tokens before or after a particular token.
 
-Is that a common operation when implementing refactorings is to a copy an AST
+A common operation when implementing refactorings is to a copy an AST
 node. Since this approach associates mutable state (a portion of the token
 stream) with each node, it's not enough to simply copy the node; the
 corresponding token stream fragment should be also be copied, and the copy
@@ -205,7 +205,7 @@ public interface Transformer {
   void replace(ASTNode<?> node, ASTNode<?> newNode);
   void remove(ASTNode<?> node);
   void insert(ASTNode<?> node, ASTNode<?> newNode, int i);
-  <T extends ASTNode<?>> T copy(T code);
+  <T extends ASTNode<?>> T copy(T node);
   String reconstructText();
 }
 \end{lstlisting}
@@ -239,12 +239,16 @@ public class InlineVariable extends Refactoring {
   }
 }
 \end{lstlisting}
-\caption{The implementation of Inline Variable refactoring using the transformer API}
+\caption{The implementation of the Inline Variable refactoring using the transformer API}
 \label{Fig:InlineVariable}
 \end{figure}
 
-The Extract Function is more complicated. \figref{Fig:ExtractFunction} shows how the
-mechanics of the transformations are implemented against the transformation API.
+The Extract Function refactoring slightly more involved.
+\figref{Fig:ExtractFunction} shows how the mechanics of the transformations are
+implemented against the transformation API. Even though the refactoring moves
+AST nodes around, copies nodes, and mixes in synthetic code with the original text,
+the code is completely oblivious to text, instead leaning on the {\tt Transformer}
+to do the heavy lifting.
 
 \begin{figure}
 \begin{lstlisting}[numbers=none, language=Java]
@@ -288,8 +292,8 @@ public class ExtractFunction extends Refactoring {
   }
 }
 \end{lstlisting}
-\caption{The implementation of Extract Function refactoring using the transformer API}
-\label{Fig:InlineVariable}
+\caption{The implementation of the Extract Function refactoring using the transformer API}
+\label{Fig:ExtractFunction}
 \end{figure}
 
 \section{Related work}
