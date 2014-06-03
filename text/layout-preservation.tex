@@ -144,6 +144,13 @@ reference to its predecessor and successor within the list, we can cheaply
 support edits like removing a sequence of tokens, or inserting a sequence of
 tokens before or after a particular token.
 
+Is that a common operation when implementing refactorings is to a copy an AST
+node. Since this approach associates mutable state (a portion of the token
+stream) with each node, it's not enough to simply copy the node; the
+corresponding token stream fragment should be also be copied, and the copy
+associated with the newly copied node. We will see later that `copy(ASTNode)`
+is an operation exposed by the transformation API.
+
 That suffices for correlating the token stream with the AST of the original
 source text, but we need to be able to maintain this mapping as the token
 stream is edited, code is moved around or copied, and new code is synthesized.
@@ -154,7 +161,7 @@ It is common for refactorings to insert new code into the program which wasn't
 present in the original source text. For example, in the case of extract
 method, a new function call is synthesized to replace the extracted statements,
 a new function is synthesized to hold them, and that new function might also
-contain some synthetic statements like global variable declaration to ensure
+contain some synthetic statements like global variable declarations to ensure
 semantics are preserved. These pose a problem since there is no original text
 to tokenize in this case.
 
@@ -184,6 +191,106 @@ Given this, we can now look up the relevant portion of a token stream for a node
 by first checking if it has a fragment explicitly associated with it by the
 pretty printer, and otherwise using its position information to look it up in
 our original mapping.
+
+\section{The transformation API}
+All AST manipulation can be boiled down to a series of node deletions and insertions.
+A replace operation is also convenient, and as mentioned previously a copy operation
+is required by our approach to layout preservation. Finally, an operation to recover
+the transformed source code is also needed. \figref{Fig:TransformerAPI} shows how
+these operations are encoded as a Java interface.
+
+\begin{figure}
+\begin{lstlisting}[numbers=none, language=Java]
+public interface Transformer {
+  void replace(ASTNode<?> node, ASTNode<?> newNode);
+  void remove(ASTNode<?> node);
+  void insert(ASTNode<?> node, ASTNode<?> newNode, int i);
+  <T extends ASTNode<?>> T copy(T code);
+  String reconstructText();
+}
+\end{lstlisting}
+\caption{The Transformer API, encoded as a Java interface}
+\label{Fig:TransformerAPI}
+\end{figure}
+
+\section{Case studies: inline variable, extract function}
+
+The Inline Variable refactoring is relatively simple; it takes an assignment
+statement as input, and replaces each use of the assigned variable with the
+expression on the right hand side before removing the assignment.
+\figref{Fig:InlineVariable} shows how the mechanics of the transformation are
+implemented against the transformation API (skipping over the portions of the
+code dealing with the correctness of the transformation).
+
+\begin{figure}
+\begin{lstlisting}[numbers=none, language=Java]
+public class InlineVariable extends Refactoring {
+  private AssignStmt definition;
+
+  // constructors, correctness checks, ...
+
+  public void apply() {
+    Transformer transformer = context.getTransformer(definition);
+    UseDefDefUseChain udduChain = definition.getMatlabProgram().analyze().getUseDefDefUseChain();
+    for (Name name : udduChain.getUses(definition)) {
+      transformer.replace(name.getParent(), transformer.copy(definition.getRHS()));
+    }
+    transformer.remove(definition);
+  }
+}
+\end{lstlisting}
+\caption{The implementation of Inline Variable refactoring using the transformer API}
+\label{Fig:InlineVariable}
+\end{figure}
+
+The Extract Function is more complicated. \figref{Fig:ExtractFunction} shows how the
+mechanics of the transformations are implemented against the transformation API.
+
+\begin{figure}
+\begin{lstlisting}[numbers=none, language=Java]
+public class ExtractFunction extends Refactoring {
+  private StatementRange extractionRange;
+  private Function enclosingFunction;
+  private String extractedFunctionName;
+
+  // constructors, correctness checks, ...
+
+  // Synthesizes a call to the extracted function. Since there is no
+  // code to preserve, it doesn't use the transformation API.
+  private Stmt makeCallToExtractedFunction() { /* ... */ }
+  // Determines the extracted function's input parameters
+  private List<String> inputVars() { /* ... */ }
+  // Determines the extracted function's output parameters
+  private List<String> outputVars() { /* ... */ }
+  // Determines the global variables used by the extracted function
+  private List<String> globalVars() { /* ... */ }
+
+  public void apply() {
+    Transformer transformer = context.getTransformer(enclosingFunction);
+    Function extracted = new Function(extractedFunctionName);
+    for (Stmt stmt : extractionRange) {
+      transformer.insert(extracted.getStmts(), transformer.copy(stmt), extracted.getNumStmt());
+    }
+
+    extracted.addInputParams(inputVars());
+    extracted.addOutputParams(outputVars());
+    for (String var : globalVars()) {
+      transformer.insert(extracted.getStmts(), new GlobalStmt(var), 0);
+    }
+
+    List<Function> functionList = ((FunctionList) enclosingFunction.getParent()).getFunctions();
+    transformer.insert(functionList, extracted, functionList.getIndexOfChild(enclosingFunction) + 1);
+    for (int i = 0; i < extractionRange.size(); ++i) {
+      transformer.remove(extractionRange.getStartStatement());
+    }
+    transformer.insert(extractionRange.getEnclosingStatementList(),
+      makeCallToExtractedFunction(), extractionRange.getStartIndex());
+  }
+}
+\end{lstlisting}
+\caption{The implementation of Extract Function refactoring using the transformer API}
+\label{Fig:InlineVariable}
+\end{figure}
 
 \section{Related work}
 
