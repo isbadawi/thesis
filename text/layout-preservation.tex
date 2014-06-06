@@ -9,43 +9,59 @@ of information about the textual layout of the code, while purely working
 in terms of text is apt to make implementations of individual refactorings
 very brittle, hard to reason about, and hard to maintain.
 
-In this chapter, we present our approach to making refactorings layout
-preserving.  We allow refactorings to be implemented in terms of a minimal tree
-transformation API, which hides the mechanics of layout preservation. As
-refactoring writers specify tree-level edits, minimal text-level edits are
-transparently computed from them. This simplifies the implementations of
-individual refactorings, allowing them to remain oblivious to the program text,
-while making them directly usable by end-users.
+In this chapter, we present our approach to the problem of implementing layout
+preserving refactorings. We allow refactorings to be implemented in terms of a
+minimal tree transformation API, which hides the mechanics of layout
+preservation. As refactoring writers specify tree-level changes, minimal
+text-level changes are transparently computed from them. This simplifies the
+implementations of individual refactorings, allowing them to remain oblivious
+to the program text and to operate at a higher level of abstraction, without
+compromising their practicality for end-users.
 
 \section{Motivation}
 
-Once all the issues surrounding semantics-preservation -- running required
-analyses, checking required preconditions, and so on -- are sorted out,
-then from an implementation perspective, a refactoring is most
+Setting aside questions of semantics preservation, a refactoring is most
 naturally thought of as a transformation on abstract syntax trees. For
-instance, a refactoring like "extract method" can be boiled down to steps like
-"move this statement from this function to that one", "synthesize a new
-function call", and "replace that statement with this one", and so
-on. Given this, a natural structure for a refactoring tool consists of parsing
-code, then performing transformations on its AST, and then pretty printing the
-transformed AST to retrieve source code to present to the programmer. Many
-refactoring tools -- particularly ones developed for research purposes, where
-practicality is often a non-goal -- operate this way.
+instance, a refactoring like Extract Method can be boiled down to high-level
+steps these:
+
+\begin{enumerate}
+  \item Synthesize a new function with the provided name
+  \item Move the selected sequence of statements from the target function to
+    the new function
+  \item For each variable which is live at the input of the new function, add a
+    corresponding input parameter to the function (or possibly or a global
+    variable declaration)
+  \item For each variable which is live at the end of the new function, add a
+    corresponding output parameter to the function
+  \item Synthesize a new function call with the appropriate number of input and
+    output arguments
+  \item Insert this function call in the target function, at the position of
+    the original sequence of statements
+\end{enumerate}
+
+These steps are agnostic to program text. Given this, a natural structure for a
+refactoring tool consists of parsing code, then performing transformations on
+its AST, and then pretty printing the transformed AST to retrieve source code
+to present to the programmer. Many refactoring tools -- particularly ones
+developed for research purposes, where practicality is often a non-goal --
+operate this way.
 
 The problem with such approaches is that by construction the AST does not
 contain enough information to accurately reconstruct the input source code.
-Typically among the casualties are whitespace, comments, and syntactic sugar.
+Typically among the casualties are indentation and other whitespace, along
+with comments and syntactic sugar.
 
 \figref{Fig:LostLayout} shows a \matlab program and the result of parsing and
 then pretty-printing it using the \mclab toolkit. The two programs are
 behaviorally equivalent, but contain many syntactic differences. The comment
 associated with the \code{cube} function has moved below the header. The
 four-space indentation has been changed to two-space indentation. Each binary
-expression has been wrapped in parentheses.  The output parameters have been
-wrapped in square brackets.  The nested function \code{square} has been moved
+expression has been wrapped in parentheses. The output parameters have been
+wrapped in square brackets. The nested function \code{square} has been moved
 -- in \matlab, nested functions have the same scope irrespective of where they
-are declared; as a simplification, the Natlab translation moves nested
-functions to the bottom of their enclosing function.
+are declared, so during parsing they are all moved to the end of their enclosing
+functions as a simplification step.
 
 \begin{figure}
 \begin{minipage}{0.5\linewidth}
@@ -78,11 +94,12 @@ end
 \end{figure}
 
 Users of an automated refactoring tool are unlikely to be accepting of such
-invasive changes to a program's text. As such, it is important for the tool to
-be aware of the layout of the program when performing refactorings. For a given
-AST transformation, it should endeavor to perform the minimal textual changes
-needed to reflect the transformation in the program text. In particular,
-unaffected portions of the program should not undergo any textual changes.
+invasive changes to a program's text. As such, it is important for any
+refactoring tool to be aware of the layout of the program when performing
+refactorings. For a given AST transformation, it should endeavor to perform the
+minimal textual changes needed to reflect the transformation in the program
+text. In particular, unaffected portions of the program should not undergo any
+textual changes.
 
 Despite this, it is still convenient to express refactorings as tree
 transformations. Refactorings would be much harder to implement and maintain if
@@ -95,7 +112,8 @@ from them. In order to accomplish this, we introduce a simple transformation
 API, which exposes a small set of tree manipulation operations. Instead of
 directly manipulating AST nodes, refactorings are implemented in terms of this
 API. Behind the scenes, the implementation of the API includes logic that keeps
-track the input program text in addition to the AST, and keeps the two in sync.
+track of the input program text in addition to the AST, and keeps the two in
+sync.
 
 \section{Synchronizing ASTs and token streams}
 
@@ -196,6 +214,8 @@ a token stream becomes:
   tokenizing pretty printer, associate it with the node and return it
   \item Otherwise look it up in the original mapping using its position information.
 \end{enumerate}
+
+\section{Heuristics for handling indentation and comments}
 
 \section{The transformation API}
 
