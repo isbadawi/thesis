@@ -65,29 +65,11 @@ functions as a simplification step.
 
 \begin{figure}
 \begin{minipage}{0.5\linewidth}
-\begin{lstlisting}[numbers=none]
-% cube takes a number x and returns its cube.
-function y = cube(x)
-    % This is a nested function that computes the square of a value.
-    function v = square(u)
-        v = u * u;
-    end
-    y = x * square(x);
-end
-\end{lstlisting}
+\lstinputlisting[numbers=none]{code/cube_original.m}
 \end{minipage}
 \hfill \hspace{.3cm} \hfill
 \begin{minipage}{0.5\linewidth}
-\begin{lstlisting}[numbers=none]
-function [y] = cube(x)
-  % cube takes a number x and returns its cube.
-  % This is a nested function that computes the square of a value.
-  y = (x * square(x));
-  function [v] = square(u)
-    v = (u * u);
-  end
-end
-\end{lstlisting}
+\lstinputlisting[numbers=none]{code/cube_roundtrip.m}
 \end{minipage}
 \caption{An example of the lossy parsing and unparsing roundtrip.}
 \label{Fig:LostLayout}
@@ -228,49 +210,13 @@ interface, and \figref{Fig:BasicTransformer} shows a trivial implementation of
 the interface that just falls back on AST operations, ignoring layout concerns.
 
 \begin{figure}
-\begin{lstlisting}[numbers=none, language=Java]
-public interface Transformer {
-  void replace(ASTNode<?> node, ASTNode<?> newNode);
-  void remove(ASTNode<?> node);
-  void insert(ASTNode<?> node, ASTNode<?> newNode, int i);
-  <T extends ASTNode<?>> T copy(T node);
-  String reconstructText();
-}
-\end{lstlisting}
+\lstinputlisting[numbers=none, language=Java]{code/Transformer.java}
 \caption{The Transformer API, encoded as a Java interface}
 \label{Fig:TransformerAPI}
 \end{figure}
 
 \begin{figure}
-\begin{lstlisting}[numbers=none, language=Java]
-public class BasicTransformer implements Transformer {
-  private Program program;
-
-  public BasicTransformer(Program program) {
-    this.program = program;
-  }
-
-  public void replace(ASTNode<?> node, ASTNode<?> newNode) {
-    node.getParent().setChild(newNode, node.getParent().getIndexOfChild(node));
-  }
-
-  public void remove(ASTNode<?> node) {
-    node.getParent().removeChild(node.getParent().getIndexOfChild(node));
-  }
-
-  public void insert(ASTNode<?> node, ASTNode<?> newNode, int i) {
-    node.insertChild(newNode, i);
-  }
-
-  public <T extends ASTNode<?>> T copy(T node) {
-    return (T) node.fullCopy();
-  }
-
-  public String reconstructText() {
-    return program.getPrettyPrinted();
-  }
-}
-\end{lstlisting}
+\lstinputlisting[numbers=none, language=Java]{code/BasicTransformer.java}
 \caption{A trivial implementation of the Transformer API}
 \label{Fig:BasicTransformer}
 \end{figure}
@@ -285,22 +231,7 @@ implemented against the transformation API (skipping over the portions of the
 code dealing with the correctness of the transformation).
 
 \begin{figure}
-\begin{lstlisting}[numbers=none, language=Java]
-public class InlineVariable extends Refactoring {
-  private AssignStmt definition;
-
-  // constructors, correctness checks, ...
-
-  public void apply() {
-    Transformer transformer = context.getTransformer(definition);
-    UseDefDefUseChain udduChain = definition.getMatlabProgram().analyze().getUseDefDefUseChain();
-    for (Name name : udduChain.getUses(definition)) {
-      transformer.replace(name.getParent(), transformer.copy(definition.getRHS()));
-    }
-    transformer.remove(definition);
-  }
-}
-\end{lstlisting}
+\lstinputlisting[numbers=none, language=Java]{code/InlineVariable.java}
 \caption{The implementation of the Inline Variable refactoring using the transformer API}
 \label{Fig:InlineVariable}
 \end{figure}
@@ -313,47 +244,7 @@ the code is completely oblivious to text, instead leaning on the {\tt Transforme
 to do the heavy lifting.
 
 \begin{figure}
-\begin{lstlisting}[numbers=none, language=Java]
-public class ExtractFunction extends Refactoring {
-  private StatementRange extractionRange;
-  private Function enclosingFunction;
-  private String extractedFunctionName;
-
-  // constructors, correctness checks, ...
-
-  // Synthesizes a call to the extracted function. Since there is no
-  // code to preserve, it doesn't use the transformation API.
-  private Stmt makeCallToExtractedFunction() { /* ... */ }
-  // Determines the extracted function's input parameters
-  private List<String> inputVars() { /* ... */ }
-  // Determines the extracted function's output parameters
-  private List<String> outputVars() { /* ... */ }
-  // Determines the global variables used by the extracted function
-  private List<String> globalVars() { /* ... */ }
-
-  public void apply() {
-    Transformer transformer = context.getTransformer(enclosingFunction);
-    Function extracted = new Function(extractedFunctionName);
-    for (Stmt stmt : extractionRange) {
-      transformer.insert(extracted.getStmts(), transformer.copy(stmt), extracted.getNumStmt());
-    }
-
-    extracted.addInputParams(inputVars());
-    extracted.addOutputParams(outputVars());
-    for (String var : globalVars()) {
-      transformer.insert(extracted.getStmts(), new GlobalStmt(var), 0);
-    }
-
-    List<Function> functionList = ((FunctionList) enclosingFunction.getParent()).getFunctions();
-    transformer.insert(functionList, extracted, functionList.getIndexOfChild(enclosingFunction) + 1);
-    for (int i = 0; i < extractionRange.size(); ++i) {
-      transformer.remove(extractionRange.getStartStatement());
-    }
-    transformer.insert(extractionRange.getEnclosingStatementList(),
-      makeCallToExtractedFunction(), extractionRange.getStartIndex());
-  }
-}
-\end{lstlisting}
+\lstinputlisting[numbers=none, language=Java]{code/ExtractFunction.java}
 \caption{The implementation of the Extract Function refactoring using the transformer API}
 \label{Fig:ExtractFunction}
 \end{figure}
