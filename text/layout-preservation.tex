@@ -12,7 +12,7 @@ very brittle, hard to reason about, and hard to maintain.
 In this chapter, we present our approach to the problem of implementing layout
 preserving refactorings. We allow refactorings to be implemented in terms of a
 minimal tree transformation API, which hides the mechanics of layout
-preservation. As refactoring writers specify tree-level changes, minimal
+preservation. As refactoring writers specify tree-level changes, minimalist
 text-level changes are transparently computed from them. This simplifies the
 implementations of individual refactorings, allowing them to remain oblivious
 to the program text and to operate at a higher level of abstraction, without
@@ -101,13 +101,19 @@ sync.
 
 At a high level, our approach to layout preservation works as follows. Given a
 \matlab source file, we start by tokenizing the source code using a \matlab
-lexer, yielding a stream of tokens. Alongside the token stream, we use a
-\matlab parser to parse the same source file, yielding an abstract syntax tree.
-Our aim is to allow refactoring writers to specify edits to the abstract syntax
-tree, and to have those edits be transparently reflected in the token stream.
-In the end, when the time comes to present the transformed source back to the
-user, we can simply concatenate all the tokens instead of pretty printing the
-AST.
+lexer, yielding a stream of tokens. Notably, this lexer does not drop any
+tokens, preserving both whitespace and comments. Since some \matlab constructs
+are whitespace-sensitive, and since keeping comments intact when compiling
+\matlab to another language was considered a useful feature, the \mclab toolkit
+already includes such a lexer; however, adapting this approach to other
+languages may involve the use of a specialized lexer.
+
+Alongside the token stream, we use a \matlab parser to parse the same source
+file, yielding an abstract syntax tree. Our aim is to allow refactoring
+writers to specify edits to the abstract syntax tree, and to have those edits
+be transparently reflected in the token stream. In the end, when the time
+comes to present the transformed source back to the user, we can simply
+concatenate all the tokens instead of pretty printing the AST.
 
 In order for this to work, there are two "primitives" that we rely on. First,
 we need to be able to identify, for a particular AST node (which may be a node
@@ -144,7 +150,7 @@ reference to its predecessor and successor within the list, we can cheaply
 support edits like removing a sequence of tokens, or inserting a sequence of
 tokens before or after a particular token.
 
-A common operation when implementing refactorings is to a copy an AST
+A common operation when implementing refactorings is to copy an AST
 node. Since this approach associates mutable state (a portion of the token
 stream) with each node, it's not enough to simply copy the node; the
 corresponding token stream fragment should be also be copied, and the copy
@@ -193,11 +199,76 @@ a token stream becomes:
 \begin{enumerate}
   \item If it has a token stream fragment associated with it, return it.
   \item If it is synthetic, then synthesize a token stream fragment using the
-  tokenizing pretty printer, associate it with the node and return it
-  \item Otherwise look it up in the original mapping using its position information.
+    tokenizing pretty printer, associate it with the node and return it.
+  \item Otherwise look it up in the original mapping using its position
+    information.
 \end{enumerate}
 
 \section{Heuristics for handling indentation and comments}
+
+Our approach of correlating AST nodes with fragments of the original program
+text and performing local edits to the token stream lets us easily preserve the
+layout of the unaffected portions of the code, as well as the internal layout
+of the affected portions. However, care must still be taken when dealing with
+code at the boundary between affected and unaffected. For instance, when
+inserting a statement in the body of a deeply nested control structure, we
+should pick an appropriate amount of indentation to match the surrounding code
+-- but the program indentation might be inconsistent, or there might not be any
+surrounding code in a particular file. Statements can also have comments
+associated with them, and ideally these should be moved alongside their
+subjects -- but since comments are largely free-form, there is no easy way to
+identify which comments are associated with a given statement. In both cases,
+we rely on heuristics to try and do something sensible.
+
+\subsection{Comments}
+
+In order to represent an association between a comment and a language
+construct, we simply extend the token stream fragment associated with the
+construct to include the comment. Note that this implies the portion of the
+program text including the construct and the comment must be contiguous,
+which might be problematic; for example, consider the (artificial) case
+in \figref{Fig:WackyComments}, where multiple aligned inline comments are
+meant to be associated with the first statement. We choose not to handle
+such cases; at the least, it would disproportionately complicate the
+implementation, as each node might have several disparate token stream
+fragments associated with it.
+
+\begin{figure}
+\begin{lstlisting}[numbers=none]
+function_call()  % This comment spans multiple lines
+another_call()   % and lies adjacent to many statements
+some_core_code() % but should be considered associated with
+                 % the first function call.
+\end{lstlisting}
+\caption{An illustration of wacky commenting practices.}
+\label{Fig:WackyComments}
+\end{figure}
+
+Comments can be associated with any kind of language construct, including
+functions, scripts, classes, methods, statements and even individual
+expressions. Comments associated with a node are also implicitly associated
+with its ancestor nodes, so that, for instance, moving a function call also
+moves any comments associated with its arguments. In each case, when an
+operation is performed on a node, we inspect the surrounding code to gather any
+associated comments. Our heuristic is simple. For each line overlapping a
+node's token stream fragment, we collect the trailing inline comments. We also
+collect the preceding line comments, searching up by line by line until a
+non-blank non-comment line is reached.
+
+\subsection{Indentation}
+
+When moving statements or functions, we attempt to match the surrounding
+indentation. Given a statement, we can extract its indentation level by
+inspecting the portion of the token stream lying between the statement's
+fragment and the preceding newline. For a multiline construct like a function,
+we extract the indentation of each line and take the common prefix. When
+inserting a node, we look for a predecessor or successor node and copy its
+indentation. If there are no siblings, we grab the indentation of the parent
+node and then try to determine how much to add on. If there are two parent
+nodes, we take the difference of their indentation levels. Otherwise, we have
+nothing to go on -- a more sophisticated approach might inspect different files
+in the project, but each token stream is tied to a single file -- so we fall
+back to a default of four spaces (which could be configurable).
 
 \section{The transformation API}
 
