@@ -97,6 +97,31 @@ API. Behind the scenes, the implementation of the API includes logic that keeps
 track of the input program text in addition to the AST, and keeps the two in
 sync.
 
+\section{The transformation API}
+
+Intuitively, all AST manipulation can be boiled down to a series of node
+deletions and insertions. A replace operation is also convenient, and as we
+will discuss further in the next section, our approach requires us to also take
+on the responsibility of copying nodes. Finally, an operation to recover the
+transformed source code is also needed. \figref{Fig:TransformerAPI} shows how
+these operations are encoded as a Java interface. In order to demonstrate that
+these operations are just conventional tree manipulation operations,
+\figref{Fig:BasicTransformer} shows a trivial implementation of the interface
+that just falls back on the operations exposed by the AST, ignoring layout
+concerns; note the close correspondence between the two sets of operations.
+
+\begin{figure}
+\lstinputlisting[numbers=none, language=Java]{code/Transformer.java}
+\caption{The Transformer API, encoded as a Java interface}
+\label{Fig:TransformerAPI}
+\end{figure}
+
+\begin{figure}
+\lstinputlisting[numbers=none, language=Java]{code/BasicTransformer.java}
+\caption{A trivial implementation of the Transformer API}
+\label{Fig:BasicTransformer}
+\end{figure}
+
 \section{Synchronizing ASTs and token streams}
 
 At a high level, our approach to layout preservation works as follows. Given a
@@ -154,8 +179,10 @@ A common operation when implementing refactorings is to copy an AST
 node. Since this approach associates mutable state (a portion of the token
 stream) with each node, it's not enough to simply copy the node; the
 corresponding token stream fragment should be also be copied, and the copy
-associated with the newly copied node. We will see later that `copy(ASTNode)`
-is an operation exposed by the transformation API.
+associated with the newly copied node, in order to ensure that we can clearly
+distinguish the original from the copy and manipulate them independently.
+This is the motivation for including the copy operation in the Transformer
+interface shown in \figref{Fig:TransformerAPI}.
 
 That suffices for correlating the token stream with the AST of the original
 source text, but we need to be able to maintain this mapping as the token
@@ -270,27 +297,6 @@ nothing to go on -- a more sophisticated approach might inspect different files
 in the project, but each token stream is tied to a single file -- so we fall
 back to a default of four spaces (which could be configurable).
 
-\section{The transformation API}
-
-All AST manipulation can be boiled down to a series of node deletions and
-insertions.  A replace operation is also convenient, and as mentioned
-previously a copy operation is required by our approach to layout preservation.
-Finally, an operation to recover the transformed source code is also needed.
-\figref{Fig:TransformerAPI} shows how these operations are encoded as a Java
-interface, and \figref{Fig:BasicTransformer} shows a trivial implementation of
-the interface that just falls back on AST operations, ignoring layout concerns.
-
-\begin{figure}
-\lstinputlisting[numbers=none, language=Java]{code/Transformer.java}
-\caption{The Transformer API, encoded as a Java interface}
-\label{Fig:TransformerAPI}
-\end{figure}
-
-\begin{figure}
-\lstinputlisting[numbers=none, language=Java]{code/BasicTransformer.java}
-\caption{A trivial implementation of the Transformer API}
-\label{Fig:BasicTransformer}
-\end{figure}
 
 \section{Niggling details: delimiters, parentheses}
 
