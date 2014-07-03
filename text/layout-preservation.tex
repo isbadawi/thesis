@@ -285,18 +285,26 @@ non-blank non-comment line is reached.
 \subsection{Indentation}
 
 When moving statements or functions, we attempt to match the surrounding
-indentation. Given a statement, we can extract its indentation level by
-inspecting the portion of the token stream lying between the statement's
-fragment and the preceding newline. For a multiline construct like a function,
-we extract the indentation of each line and take the common prefix. When
-inserting a node, we look for a predecessor or successor node and copy its
-indentation. If there are no siblings, we grab the indentation of the parent
-node and then try to determine how much to add on. If there are two parent
-nodes, we take the difference of their indentation levels. Otherwise, we have
-nothing to go on -- a more sophisticated approach might inspect different files
-in the project, but each token stream is tied to a single file -- so we fall
-back to a default of four spaces (which could be configurable).
+indentation. Given a simple statement, we compute its indentation level by
+taking the first line that overlaps its token stream fragment, and use the
+portion lying between the start of the line and the first non-whitespace token.
+For a multiline construct like a function or a loop, we extract the indentation
+of each line and take the common prefix. When inserting a node, we try to guess
+the appropriate amount of indentation to insert by applying the following
+heuristic.
 
+\begin{enumerate}
+  \item Special case: if we're inserting a statement between two semicolon or
+    comma separated statements on the same line, then there's no indentation to
+    add.
+  \item Look for a predecessor or successor node and copy its indentation.
+  \item Look for a statement or function list elsewhere in the file, and copy
+    the indentation of the first node there.
+  \item Otherwise, there is nothing to go on -- a more sophisticated approach
+    might inspect different files in the project, but each token stream is tied
+    to a single file -- so we fall back to an arbitrary (potentially configurable)
+    default of four spaces.
+\end{enumerate}
 
 \section{Niggling details: delimiters, parentheses}
 
