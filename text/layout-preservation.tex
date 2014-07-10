@@ -220,18 +220,53 @@ straightforward recursive traversal of the AST; for each node, we synthesize a
 sequence of tokens, and at the same time associate that sequence with the node
 for later use.
 
-% TODO(isbadawi): Give a better breakdown of the cases. Possibly add a section
-% with a more concrete description of the approach.
+\section{Putting it all together}
 
-Given this facility, the procedure for looking up a given node's portion of the
-a token stream becomes:
+Given a program $P$, the lexer produces a stream $S$ of tokens $t_1, \dots,
+t_n$. For a given token $t_i$ in $S$, we write $text(t_i)$ for the token's text
+content, $startpos(t_i)$ for the token's starting position, and $endpos(t_i)$
+for the token's ending position. Given the same $P$, the parser produces an AST
+$T$. For each AST node $n$ in $T$, we overload our previous definitions and
+write $startpos(n)$ for the node's starting position, and $endpos(n)$ for the
+node's ending position. We take all of these as inputs; these are
+conventionally provided by a typical lexer and parser.
+
+We start by creating a doubly linked list $L$ with a node for each token in the
+token stream. We write $head(L)$ and $tail(L)$ for the head and tail nodes of
+$L$, respectively. Given a node $n$, we write $token(n)$ for the token
+associated with $n$, $prev(n)$ for its predecessor node in $L$, and $next(n)$
+for its successor node in $L$. We then define a mapping $P$ from source
+positions to nodes in $L$; for each node $n$ in $L$, we map both
+$startpos(token(n))$ and $endpos(token(n))$ to $n$.
+
+A \emph{token stream fragment} $f = \langle start(f), end(f) \rangle$ is a pair
+of nodes in $L$: a starting node $start(f)$ and an ending node $end(f)$. Given
+an AST node $n$ in $T$, we ultimately need to be able to retrieve (or
+synthesize) a corresponding token stream fragment. For a node $n$ occurring in
+the original AST produced by the parser, the corresponding token stream
+fragment is $\langle P[startpos(n)], P[endpos(n)] \rangle$, but as alluded to
+in the previous sections, this won't be accurate when dealing with synthetic
+nodes, or copies of nodes. To handle these, we allow a node's token stream
+fragment to be set explicitly, skipping the lookup in $P$. This facility is
+used by the tokenizing pretty printer, and in the implementation of the copy
+operation. We write $fragment(n)$ to retrieve the token stream fragment
+associated with node $n$, if any.
+
+Now when it comes to getting at a token stream fragment corresponding to a
+given AST node $n$, we distinguish between the following cases.
 
 \begin{enumerate}
-  \item If it has a token stream fragment associated with it, return it.
-  \item If it is synthetic, then synthesize a token stream fragment using the
-    tokenizing pretty printer, associate it with the node and return it.
-  \item Otherwise look it up in the original mapping using its position
-    information.
+  \item $n$ is a node from the original program, existing in the original
+    AST produced by the parser. In that case, the corresponding fragment
+    is just $\langle P[startpos(n)], P[endpos(n)] \rangle$.
+  \item $n$ is a synthetic node we're seeing for the first time. In that case,
+    we invoke the tokenizing pretty printer on $n$, which will output another
+    doubly linked list $L'$. Now the corresponding fragment is
+    $\langle head(L'), tail(L') \rangle$.
+  \item a synthetic node we've seen before. In that case, the corresponding
+    fragment is $fragment(n)$.
+  \item a copy of another node. In this case, the correpsonding fragment is
+    again $fragment(n)$.
 \end{enumerate}
 
 \section{Heuristics for handling indentation and comments}
@@ -283,7 +318,7 @@ operation is performed on a node, we inspect the surrounding code to gather any
 associated comments. Given a node, our heuristic is as follows.
 
 \begin{enumerate}
-  \item
+  \item % TODO(isbadawi):
 \end{enumerate}
 
 % TODO(isbadawi): Add figure showing which comments are tied to which node.
