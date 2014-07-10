@@ -11,8 +11,8 @@ very brittle, hard to reason about, and hard to maintain.
 
 In this chapter, we present our approach to the problem of implementing layout
 preserving refactorings. We allow refactorings to be implemented in terms of a
-minimal tree transformation API, which hides the mechanics of layout
-preservation. As refactoring writers specify tree-level changes, minimalist
+minimalist tree transformation API, which hides the mechanics of layout
+preservation. As refactoring writers specify tree-level changes, minimal
 text-level changes are transparently computed from them. This simplifies the
 implementations of individual refactorings, allowing them to remain oblivious
 to the program text and to operate at a higher level of abstraction, without
@@ -220,6 +220,9 @@ straightforward recursive traversal of the AST; for each node, we synthesize a
 sequence of tokens, and at the same time associate that sequence with the node
 for later use.
 
+% TODO(isbadawi): Give a better breakdown of the cases. Possibly add a section
+% with a more concrete description of the approach.
+
 Given this facility, the procedure for looking up a given node's portion of the
 a token stream becomes:
 
@@ -277,7 +280,15 @@ expressions. Comments associated with a node are also implicitly associated
 with its ancestor nodes, so that, for instance, moving a function call also
 moves any comments associated with its arguments. In each case, when an
 operation is performed on a node, we inspect the surrounding code to gather any
-associated comments. Our heuristic is simple. For each line overlapping a
+associated comments. Given a node, our heuristic is as follows.
+
+\begin{enumerate}
+  \item
+\end{enumerate}
+
+% TODO(isbadawi): Add figure showing which comments are tied to which node.
+
+For each line overlapping a
 node's token stream fragment, we collect the trailing inline comments. We also
 collect the preceding line comments, searching up by line by line until a
 non-blank non-comment line is reached.
@@ -324,7 +335,7 @@ deal with delimiters. For example, adding a second argument to a function call
 requires inserting a comma before the text corresponding to the expression.
 Similarly, removing an argument requires removing the corresponding comma.
 
-Since the Transformer API takes all paremeters as \texttt{ASTNode<?>}, the root
+Since the Transformer API takes all parameters as \texttt{ASTNode<?>}, the root
 of the AST node class hierarchy, it doesn't necessarily know which delimiters
 to use. One way to address this would be to have the Transformer API expose
 different operations to manipulate statement lists, argument lists, and
@@ -333,7 +344,7 @@ disportionate cost for what should be a minor concern. Instead, the
 transformation engine handles this by inspecting the AST fragments handed to
 the \texttt{insert} and \texttt{remove} operations. Using a combination of
 runtime type checks and AST traversal, it is straightforward to distinguish the
-different cases we need to handle.
+different cases we need to handle. % TODO(isbadawi): Clarify this sentence...
 
 Another case where the transformation engine may need to synthesize extra code
 is the preservation of operator precedence. \figref{Fig:NeedParens} shows
@@ -366,6 +377,9 @@ expression on the right hand side before removing the assignment.
 implemented against the transformation API (skipping over the portions of the
 code dealing with the correctness of the transformation).
 
+% TODO(isbadawi): Add a listing showing the code before using the Transformer.
+% TODO(isbadawi): Add before-after figure, showing ASTs and token streams.
+
 \begin{figure}
 \lstinputlisting[numbers=none, language=Java]{code/InlineVariable.java}
 \caption{The implementation of the Inline Variable refactoring using the transformer API}
@@ -375,9 +389,9 @@ code dealing with the correctness of the transformation).
 The Extract Function refactoring slightly more involved.
 \figref{Fig:ExtractFunction} shows how the mechanics of the transformations are
 implemented against the transformation API. Even though the refactoring moves
-AST nodes around, copies nodes, and mixes in synthetic code with the original text,
-the code is completely oblivious to text, instead leaning on the {\tt Transformer}
-to do the heavy lifting.
+AST nodes around, copies nodes, and mixes in synthetic code with the original
+text, the code is completely oblivious to text, instead leaning on the {\tt
+Transformer} to do the heavy lifting.
 
 \begin{figure}
 \lstinputlisting[numbers=none, language=Java]{code/ExtractFunction.java}
