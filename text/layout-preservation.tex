@@ -318,15 +318,22 @@ operation is performed on a node, we inspect the surrounding code to gather any
 associated comments. Given a node, our heuristic is as follows.
 
 \begin{enumerate}
-  \item % TODO(isbadawi):
+  \item For a statement or an expression, we include the trailing inline
+    comment, if any. Given the node $n$, we take $end(fragment(n))$, which is a
+    node in $L$, and search forwards along its successor nodes, skipping over
+    any space or tab (but not newline) tokens. If we reach a comment, which the
+    lexer will have grouped into a single token $t$, we replace
+    $end(fragment(n))$ by $t$. Otherwise we'll reach either a newline, the end
+    of the file, or some other text token, in which case we stop.
+  \item For all nodes, we also include any preceding line comments. Given
+    a node $n$, we take $start(fragment(n))$, which is a node in $L$, and
+    search backwards along its predecessor nodes, skipping any whitespace
+    tokens, including newline tokens. For each line comment token $t$ we
+    encounter, we replace $start(fragment(n))$ by $t$ and continue, stopping
+    only when we encounter a text token, or the start of the file.
 \end{enumerate}
 
 % TODO(isbadawi): Add figure showing which comments are tied to which node.
-
-For each line overlapping a
-node's token stream fragment, we collect the trailing inline comments. We also
-collect the preceding line comments, searching up by line by line until a
-non-blank non-comment line is reached.
 
 \subsection{Indentation}
 
