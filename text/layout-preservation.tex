@@ -224,12 +224,14 @@ for later use.
 
 Given a program $P$, the lexer produces a stream $S$ of tokens $t_1, \dots,
 t_n$. For a given token $t_i$ in $S$, we write $text(t_i)$ for the token's text
-content, $startpos(t_i)$ for the token's starting position, and $endpos(t_i)$
-for the token's ending position. Given the same $P$, the parser produces an AST
-$T$. For each AST node $n$ in $T$, we overload our previous definitions and
-write $startpos(n)$ for the node's starting position, and $endpos(n)$ for the
-node's ending position. We take all of these as inputs; these are
-conventionally provided by a typical lexer and parser.
+content, \emph{startpos}$(t_i)$ for the token's starting position, and
+\emph{endpos}$(t_i)$ for the token's ending position. Given the same $P$, the
+parser produces an AST $T$. For each AST node $n$ in $T$, we overload our
+previous definitions and write \emph{startpos}$(n)$ for the node's starting position,
+and \emph{endpos}$(n)$ for the node's ending position, which are the same as the
+starting and ending positions of the first and last tokens corresponding to $n$,
+respectively. We take all of these as inputs; these are conventionally provided
+by a typical lexer and parser.
 
 We start by creating a doubly linked list $L$ with a node for each token in the
 token stream. We write $head(L)$ and $tail(L)$ for the head and tail nodes of
@@ -237,15 +239,15 @@ $L$, respectively. Given a node $n$, we write $token(n)$ for the token
 associated with $n$, $prev(n)$ for its predecessor node in $L$, and $next(n)$
 for its successor node in $L$. We then define a mapping $P$ from source
 positions to nodes in $L$; for each node $n$ in $L$, we map both
-$startpos(token(n))$ and $endpos(token(n))$ to $n$.
+\emph{startpos}$(token(n))$ and \emph{endpos}$(token(n))$ to $n$.
 
-A token stream fragment $f = \langle start(f), end(f) \rangle$ is a pair
-of nodes in $L$: a starting node $start(f)$ and an ending node $end(f)$. Given
-an AST node $n$ in $T$, we ultimately need to be able to retrieve (or
-synthesize) a corresponding token stream fragment. For a node $n$ occurring in
-the original AST produced by the parser, the corresponding token stream
-fragment is $\langle P[startpos(n)], P[endpos(n)] \rangle$, but as alluded to
-in the previous sections, this won't be accurate when dealing with synthetic
+A token stream fragment $f = \langle start(f), end(f) \rangle$ is a pair of
+nodes in $L$: a starting node $start(f)$ and an ending node $end(f)$. Given an
+AST node $n$ in $T$, we ultimately need to be able to retrieve (or synthesize)
+a corresponding token stream fragment. For a node $n$ occurring in the original
+AST produced by the parser, the corresponding token stream fragment is $\langle
+P[$\emph{startpos}$(n)], P[$\emph{endpos}$(n)] \rangle$, but as alluded to in
+the previous sections, this won't be accurate when dealing with synthetic
 nodes, or copies of nodes. To handle these, we allow a node's token stream
 fragment to be set explicitly, skipping the lookup in $P$. This facility is
 used by the tokenizing pretty printer, and in the implementation of the copy
@@ -258,14 +260,14 @@ given AST node $n$, we distinguish between the following cases.
 \begin{enumerate}
   \item $n$ is a node from the original program, existing in the original
     AST produced by the parser. In that case, the corresponding fragment
-    is just $\langle P[startpos(n)], P[endpos(n)] \rangle$.
+    is just $\langle P[$\emph{startpos}$(n)], P[$\emph{endpos}$(n)] \rangle$.
   \item $n$ is a synthetic node we're seeing for the first time. In that case,
     we invoke the tokenizing pretty printer on $n$, which will output another
     doubly linked list $L'$. Now the corresponding fragment is
     $\langle head(L'), tail(L') \rangle$.
-  \item a synthetic node we've seen before. In that case, the corresponding
+  \item $n$ is a synthetic node we've seen before. In that case, the corresponding
     fragment is $fragment(n)$.
-  \item a copy of another node. In this case, the correpsonding fragment is
+  \item $n$ is a copy of another node. In this case, the corresponding fragment is
     again $fragment(n)$.
 \end{enumerate}
 
@@ -284,6 +286,33 @@ associated with them, and ideally these should be moved alongside their
 subjects -- but since comments are largely free-form, there is no easy way to
 identify which comments are associated with a given statement. In both cases,
 we rely on heuristics to try and do something sensible.
+
+\subsection{Indentation}
+
+When moving statements or functions, we attempt to match the surrounding
+indentation. Given a simple statement node $n$, we compute its indentation
+level by taking $start(fragment(n))$ and searching backwards along its
+predecessor nodes until a non-whitespace or newline token $t$ is reached. Then
+the token stream fragment corresponding to the indentation is \newline $\langle
+next(t), prev(start(fragment(n))) \rangle$ (which is possibly empty). For a
+multiline construct like a function or a loop, we compute the indentation of
+each line and take the common prefix. When inserting a node, we try to guess
+the appropriate amount of indentation to insert by applying the following
+heuristic.
+
+\begin{enumerate}
+  \item Special case: if we're inserting a statement between two semicolon or
+    comma separated statements on the same line, then there's no indentation to
+    add.
+  \item Otherwise, look for a predecessor or successor AST node and copy its
+    indentation.
+  \item Otherwise, look for a statement or function list elsewhere in the file,
+    and copy the indentation of the first node there.
+  \item Otherwise, there is nothing to go on -- a more sophisticated approach
+    might inspect different files in the project, but each token stream is tied
+    to a single file -- so we fall back to an arbitrary (potentially
+    configurable) default of four spaces.
+\end{enumerate}
 
 \subsection{Comments}
 
@@ -335,32 +364,6 @@ associated comments. Given a node, our heuristic is as follows.
 
 % TODO(isbadawi): Add figure showing which comments are tied to which node.
 
-\subsection{Indentation}
-
-When moving statements or functions, we attempt to match the surrounding
-indentation. Given a simple statement node $n$, we compute its indentation
-level by taking $start(fragment(n))$ and searching backwards along its
-predecessor nodes until a non-whitespace or newline token $t$ is reached. Then
-the token stream fragment corresponding to the indentation is \newline $\langle
-next(t), prev(start(fragment(n))) \rangle$ (which is possibly empty). For a
-multiline construct like a function or a loop, we compute the indentation of
-each line and take the common prefix. When inserting a node, we try to guess
-the appropriate amount of indentation to insert by applying the following
-heuristic.
-
-\begin{enumerate}
-  \item Special case: if we're inserting a statement between two semicolon or
-    comma separated statements on the same line, then there's no indentation to
-    add.
-  \item Look for a predecessor or successor AST node and copy its indentation.
-  \item Look for a statement or function list elsewhere in the file, and copy
-    the indentation of the first node there.
-  \item Otherwise, there is nothing to go on -- a more sophisticated approach
-    might inspect different files in the project, but each token stream is tied
-    to a single file -- so we fall back to an arbitrary (potentially configurable)
-    default of four spaces.
-\end{enumerate}
-
 \section{Niggling details: delimiters, parentheses}
 
 In addition to moving existing pieces of code around and dealing with newly
@@ -387,12 +390,12 @@ parameter lists, but that would entail a much larger API surface -- a
 disportionate cost for what should be a minor concern. Instead, the
 transformation engine handles this by inspecting the AST fragments handed to
 the \texttt{insert} and \texttt{remove} operations. By inspecting the structure
-of the AST and performing some runtime type checks, we can distinguish between
-the different cases we need to handle. For example, \figref{Fig:WhereAreWe}
-shows a small method we can use to tell whether an arbitrary AST node actually
-represents the input parameter list of a function; in that case, we would know
-to use commas as delimiters, and also to surround the list with square brackets
-as needed.
+of the AST and performing some runtime checks to determine the context we're
+operating in, we can distinguish between the different cases we need to handle.
+For example, \figref{Fig:WhereAreWe} shows a small method we can use to tell
+whether an arbitrary AST node actually represents the input parameter list of a
+function; in that case, we would know to use commas as delimiters, and also to
+surround the list with square brackets as needed.
 
 \begin{figure}
 \begin{lstlisting}[language=Java, numbers=none]
@@ -401,7 +404,7 @@ private boolean isInputParamList(ASTNode<?> node) {
       ((Function) node.getParent()).getInputParams() == node;
 }
 \end{lstlisting}
-\caption{Using runtime type checks and AST traversal to distinguish cases.}
+\caption{Using runtime checks and AST traversal to examine the context.}
 \label{Fig:WhereAreWe}
 \end{figure}
 
