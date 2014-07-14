@@ -239,7 +239,7 @@ for its successor node in $L$. We then define a mapping $P$ from source
 positions to nodes in $L$; for each node $n$ in $L$, we map both
 $startpos(token(n))$ and $endpos(token(n))$ to $n$.
 
-A \emph{token stream fragment} $f = \langle start(f), end(f) \rangle$ is a pair
+A token stream fragment $f = \langle start(f), end(f) \rangle$ is a pair
 of nodes in $L$: a starting node $start(f)$ and an ending node $end(f)$. Given
 an AST node $n$ in $T$, we ultimately need to be able to retrieve (or
 synthesize) a corresponding token stream fragment. For a node $n$ occurring in
@@ -338,11 +338,13 @@ associated comments. Given a node, our heuristic is as follows.
 \subsection{Indentation}
 
 When moving statements or functions, we attempt to match the surrounding
-indentation. Given a simple statement, we compute its indentation level by
-taking the first line that overlaps its token stream fragment, and use the
-portion lying between the start of the line and the first non-whitespace token.
-For a multiline construct like a function or a loop, we extract the indentation
-of each line and take the common prefix. When inserting a node, we try to guess
+indentation. Given a simple statement node $n$, we compute its indentation
+level by taking $start(fragment(n))$ and searching backwards along its
+predecessor nodes until a non-whitespace or newline token $t$ is reached. Then
+the token stream fragment corresponding to the indentation is \newline $\langle
+next(t), prev(start(fragment(n))) \rangle$ (which is possibly empty). For a
+multiline construct like a function or a loop, we compute the indentation of
+each line and take the common prefix. When inserting a node, we try to guess
 the appropriate amount of indentation to insert by applying the following
 heuristic.
 
@@ -350,7 +352,7 @@ heuristic.
   \item Special case: if we're inserting a statement between two semicolon or
     comma separated statements on the same line, then there's no indentation to
     add.
-  \item Look for a predecessor or successor node and copy its indentation.
+  \item Look for a predecessor or successor AST node and copy its indentation.
   \item Look for a statement or function list elsewhere in the file, and copy
     the indentation of the first node there.
   \item Otherwise, there is nothing to go on -- a more sophisticated approach
@@ -384,9 +386,24 @@ different operations to manipulate statement lists, argument lists, and
 parameter lists, but that would entail a much larger API surface -- a
 disportionate cost for what should be a minor concern. Instead, the
 transformation engine handles this by inspecting the AST fragments handed to
-the \texttt{insert} and \texttt{remove} operations. Using a combination of
-runtime type checks and AST traversal, it is straightforward to distinguish the
-different cases we need to handle. % TODO(isbadawi): Clarify this sentence...
+the \texttt{insert} and \texttt{remove} operations. By inspecting the structure
+of the AST and performing some runtime type checks, we can distinguish between
+the different cases we need to handle. For example, \figref{Fig:WhereAreWe}
+shows a small method we can use to tell whether an arbitrary AST node actually
+represents the input parameter list of a function; in that case, we would know
+to use commas as delimiters, and also to surround the list with square brackets
+as needed.
+
+\begin{figure}
+\begin{lstlisting}[language=Java, numbers=none]
+private boolean isInputParamList(ASTNode<?> node) {
+  return node.getParent() instanceof Function &&
+      ((Function) node.getParent()).getInputParams() == node;
+}
+\end{lstlisting}
+\caption{Using runtime type checks and AST traversal to distinguish cases.}
+\label{Fig:WhereAreWe}
+\end{figure}
 
 Another case where the transformation engine may need to synthesize extra code
 is the preservation of operator precedence. \figref{Fig:NeedParens} shows
@@ -415,17 +432,24 @@ if they're not already there.
 The Inline Variable refactoring is relatively simple; it takes an assignment
 statement as input, and replaces each use of the assigned variable with the
 expression on the right hand side before removing the assignment.
-\figref{Fig:InlineVariable} shows how the mechanics of the transformation are
-implemented against the transformation API (skipping over the portions of the
-code dealing with the correctness of the transformation).
+\figref{Fig:InlineVariableBefore} shows a pre-existing implementation of this
+refactoring (skipping over the portions of the code dealing with the
+correctness of the transformation), and \figref{Fig:InlineVariableAfter} shows
+how the mechanics of the transformation are implemented against the
+transformation API.
 
-% TODO(isbadawi): Add a listing showing the code before using the Transformer.
 % TODO(isbadawi): Add before-after figure, showing ASTs and token streams.
+
+\begin{figure}
+\lstinputlisting[numbers=none, language=Java]{code/InlineVariableBefore.java}
+\caption{The original implementation of the Inline Variable refactoring}
+\label{Fig:InlineVariableBefore}
+\end{figure}
 
 \begin{figure}
 \lstinputlisting[numbers=none, language=Java]{code/InlineVariable.java}
 \caption{The implementation of the Inline Variable refactoring using the transformer API}
-\label{Fig:InlineVariable}
+\label{Fig:InlineVariableAfter}
 \end{figure}
 
 The Extract Function refactoring slightly more involved.
