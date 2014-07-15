@@ -435,24 +435,23 @@ if they're not already there.
 The Inline Variable refactoring is relatively simple; it takes an assignment
 statement as input, and replaces each use of the assigned variable with the
 expression on the right hand side before removing the assignment.
-\figref{Fig:InlineVariableBefore} shows a pre-existing implementation of this
+\figref{Fig:InlineVariableComparison} shows a pre-existing implementation of this
 refactoring (skipping over the portions of the code dealing with the
-correctness of the transformation), and \figref{Fig:InlineVariableAfter} shows
-how the mechanics of the transformation are implemented against the
-transformation API.
+correctness of the transformation), followed by an equivalent implementation against
+the transformation API.
 
 % TODO(isbadawi): Add before-after figure, showing ASTs and token streams.
 
 \begin{figure}
+\begin{minipage}{\linewidth}
 \lstinputlisting[numbers=none, language=Java]{code/InlineVariableBefore.java}
-\caption{The original implementation of the Inline Variable refactoring}
-\label{Fig:InlineVariableBefore}
-\end{figure}
-
-\begin{figure}
+\end{minipage}
+\begin{minipage}{\linewidth}
 \lstinputlisting[numbers=none, language=Java]{code/InlineVariable.java}
-\caption{The implementation of the Inline Variable refactoring using the transformer API}
-\label{Fig:InlineVariableAfter}
+\end{minipage}
+\label{Fig:InlineVariableComparison}
+\caption{The original implementation of the Inline Variable refactoring using plain
+AST operations, and the new implementation against the Transformer API.}
 \end{figure}
 
 The Extract Function refactoring slightly more involved.
