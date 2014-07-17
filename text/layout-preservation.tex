@@ -469,7 +469,24 @@ Transformer} to do the heavy lifting.
 
 The work that most closely resembles ours is HaRe, a refactoring tool for
 Haskell \cite{HaRe}. It uses a similar approach of synchronizing an AST with a
-token stream, which is then concatenated to produce transformed source code.
+token stream; program analyses are carried out using the AST, but program
+transformations are carried out on the token stream alongside the AST, and
+source positions are used to bridge the two. Rather than using a tokenizing
+pretty printer for synthesized code, the output of the regular pretty printer
+is used, together with a scheme where the concatenated tokens are re-lexed to
+obtain correct positions which are then used to update the position information
+of existing AST nodes. Similar heuristics for associating comments with program
+structures are also presented.
+
+De Jonge and Visser \cite{AlgorithmForLayoutPreservation} present an algorithm
+for layout preservation in refactoring transformations. While the token stream
+is used to access the layout structure surrounding a given AST node, it is not
+modified in parallel with the AST; instead, the source code is reconstructed
+afterwards using a combination of the original program text, pretty printed
+text, and the application of a tree differencing algorithm to detect insertions
+and deletions. An attempt is made to formalize the problem and prove the
+algorithm correct within that formalization; by contrast, we are largely
+describing an implemention.
 
 Waddington and Yao \cite{Proteus} tackled the same problem, which they termed
 "the problem of style disruption", with Proteus, their refactoring tool for C
@@ -478,10 +495,7 @@ AST (LL-AST)", where literals, token and whitespace nodes are interspersed
 alongside the regular nodes. Enhancing the AST with layout information has also
 been the theme of a few other approaches to this problem \cite{RefactorErl}.
 
-% TODO(isbadawi): Look at how http://scala-refactoring.org/ does it
-% TODO(isbadawi): Look at "An Algorithm for Layout Preservation in Refactoring Transformations"
-% TODO(isbadawi): Look at "Detaching and Reconstructing the Documentary Structure of Source Code" (looks iffy)
-
+% TODO(isbadawi): Citation?
 The Eclipse JDT contains infrastructure for modifying code at two levels -- a
 lower-level API for describing text manipulation primitives, and a higher-level
 AST rewriting API, which accepts descriptions of changes to AST nodes and uses
