@@ -7,7 +7,7 @@ complicate the problem of statically computing a precise call graph.
 
 Previous work on \matlab call graph construction operated on a \matlab subset,
 carefully ruling out those features which aren't amenable to static analysis,
-with the ultimate goal of compiling \matlab to a statically typed langauge such
+with the ultimate goal of compiling \matlab to a statically typed language such
 as \fortran or \xten \cite{Tamer}. As we mean to support regular \matlab
 development, carving out such a subset is not an acceptable approach.
 
@@ -88,7 +88,15 @@ the effect of the transformation on a piece of \matlab code.
 \item We replace every function call with a call to
   \texttt{mclab\_callgraph\_log\_then\_run}, passing a similar identifying
   string as the first argument, a handle to the target function as the second
-  argument, together with the arguments of the original call.
+  argument, together with the arguments of the original call. One caveat here
+  is that there can be functions whose return value depends on the current
+  execution context. For instance, \texttt{nargin} and \texttt{nargout} are
+  builtin functions that return the number of input and output parameters
+  passed to the current function. If we call these functions inside
+  \texttt{mclab\_callgraph\_log\_then\_run} instead of the original function,
+  they won't necessarily return the same value. As such, we avoid instrumenting
+  calls to these functions, among other reflective functions such as
+  \texttt{narginchk} and \texttt{inputname}.
 
 \end{itemize}
 
