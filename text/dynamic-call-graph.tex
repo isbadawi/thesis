@@ -51,21 +51,26 @@ of the two approaches.
 The high-level idea is to insert logging statements before every possible call
 site, and at the start of every function or script. After executing the
 transformed code, we can post-process the logs and match up call sites with
-their targets, since the target will follow the call in the log. We identify
-call sites by the file they're contained in and their position within that
-file. This comes in handy when it comes to implementing navigation features in
-an IDE, as these typically take a textual range (e.g. a mouse selection) as
-input.
+their targets, since the target will follow the call in the log. We define a
+unique identifier $identifier(n)$ for every call site and call target $n$; this
+consists of the name of $n$ (the variable name if it's a variable, the function
+name if it's a function definition, the script name if it's a script, and the
+string \texttt{<lambda>} if it's an anonymous function expression), the file
+it's contained in and its position (line and column) within that file. This
+format comes in handy when it comes to implementing navigation features in an
+IDE, as these typically take a textual range (e.g. a mouse selection) as input.
 
 The transformation depends on a few functions (listed in
 \figref{Fig:CallgraphRuntime}) being available at runtime. The
-\texttt{mclab\_callgraph\_init} function takes a path to a log file, creates it, and
-makes a handle to it globally accessible. The \texttt{mclab\_callgraph\_log} function
-takes a string and writes it to the log file. The
-\texttt{mclab\_callgraph\_log\_then\_run} function takes a string, a function handle,
-and a variable number of arguments. It writes the string to the log file, then
-forwards the input arguments to the function handle, returning any output
-arguments the function handle returns.
+\texttt{mclab\_callgraph\_init} and \texttt{mclab\_callgraph\_log} functions
+are straightforward; the former takes a path to a log file, creates it and
+makes a handle to it globally accessible, while the latter takes a string and
+writes it to the file. \newline \texttt{mclab\_callgraph\_log\_then\_run} is more
+complicated; it takes a string, a variable (which is possibly a function
+handle) and a variable number of arguments. If the given variable is a function
+handle (either a function handle expression, or a variable that contains a
+function handle), then we log the string to the file, and in either case we
+forward the arguments to the variable.
 
 \begin{figure}
 \lstinputlisting[numbers=none]{code/callgraph_runtime.m}
@@ -79,24 +84,44 @@ the effect of the transformation on a piece of \matlab code.
 
 \begin{itemize}
 
-\item For every function and script, we insert as the first statement a call to
-  \texttt{mclab\_callgraph\_log}, which will output the name of the function or
-  script, the file it's contained in, and its position within that file, along
-  with a keyword "enter" that helps to distinguish between call sites and call
-  targets.
+\item For every function or script $f$, we insert a call to
+  \texttt{mclab\_callgraph\_log} as the first statement, passing the string
+  \texttt{enter} followed by $identifier(f)$.
 
-\item We replace every function call with a call to
-  \texttt{mclab\_callgraph\_log\_then\_run}, passing a similar identifying
-  string as the first argument, a handle to the target function as the second
-  argument, together with the arguments of the original call. One caveat here
-  is that there can be functions whose return value depends on the current
-  execution context. For instance, \texttt{nargin} and \texttt{nargout} are
-  builtin functions that return the number of input and output parameters
-  passed to the current function. If we call these functions inside
-  \texttt{mclab\_callgraph\_log\_then\_run} instead of the original function,
-  they won't necessarily return the same value. As such, we avoid instrumenting
-  calls to these functions, among other reflective functions such as
-  \texttt{narginchk} and \texttt{inputname}.
+\item For every anonymous function definition $f$, we replace the body $b$ of the
+  anonymous function with a call to \texttt{mclab\_callgraph\_log\_then\_run},
+  passing the string \texttt{enter} followed by $identifier(f)$ as the first
+  argument, and the original expression $b$ wrapped in an anonymous function
+  expression taking no arguments as the second argument.
+
+\item We replace every function call $n$ (as identified by the kind analysis)
+  with a call to \texttt{mclab\_callgraph\_log\_then\_run}, passing the string
+  \texttt{call} followed by $identifier(n)$ as the first argument, a handle to
+  the target function as the second argument, and copies of the original
+  arguments as the rest of the arguments.
+
+  One caveat here is that there can be functions whose return value
+  depends on the current execution context. For instance, \texttt{nargin} and
+  \texttt{nargout} are builtin functions that return the number of input and
+  output parameters passed to the current function. If we call these functions
+  inside \texttt{mclab\_callgraph\_log\_then\_run} instead of the original
+  function, they won't necessarily return the same value. As such, we avoid
+  instrumenting calls to these functions, among other reflective functions such
+  as \texttt{narginchk} and \texttt{inputname}.
+
+\item While the kind analysis distinguishes between function calls and variable
+  accesses, it doesn't distinguish among the latter between array accesses and
+  function handle invocations. In order to accurately trace control flow through
+  function handles, we also instrument variable accesses in the same way as for
+  function calls, only rather than passing in a function handle expression as
+  the second argument, we just pass in the variable. At runtime,
+  \texttt{mclab\_callgraph\_log\_then\_run} makes use of \matlab's reflective
+  features to identify function handles, and only logs the call event in those
+  cases. One small detail here is that an array access might have a colon
+  literal as one of its arguments, and passing it to a function instead will
+  cause \matlab to generate an error at runtime. In order for the
+  transformation to be correct, we go through and replace any colon literals
+  with colon string literals.
 
 \end{itemize}
 
@@ -106,24 +131,17 @@ code as possible. This is handed off to the tracing machinery, which will first
 instrument the project as described (in a temporary folder), create a temporary
 file to hold the logs, and invoke \matlab, first calling
 \texttt{mclab\_callgraph\_init} with the path to the log file, and then the
-entry point. The log file can then be processed, and the \texttt{call} and
-\texttt{enter} entries matched up.
+entry point. Once the execution is over, the log file is processed, and call
+graph edges are identified by looking for \texttt{call} events that are
+immediately followed by an \texttt{enter} event.
 
-\begin{figure}
-\begin{minipage}{0.3\linewidth}
+\begin{figure}[htbp]
+  \begin{minipage}{\linewidth}
 \lstinputlisting[numbers=none]{code/callgraph_before.m}
 \end{minipage}
-\hfill \hspace{.3cm} \hfill
-\begin{minipage}{0.7\linewidth}
+\begin{minipage}{\linewidth}
 \lstinputlisting[numbers=none]{code/callgraph_after.m}
 \end{minipage}
 \caption{An example of the callgraph tracing transformation.}
 \label{Fig:CallgraphBeforeAfter}
-\end{figure}
-
-
-\begin{figure}
-\lstinputlisting[numbers=none]{code/callgraph_aspect.m}
-\caption{The call graph tracer implemented as an aspect.}
-\label{Fig:CallgraphAspect}
 \end{figure}

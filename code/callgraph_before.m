@@ -1,5 +1,5 @@
-function f()
-  x = compute_x(1, other_call())
-  y = compute_y
-  z = x + y
+function z = f()
+  add = @(x, y) x + y;
+  three = add(1, 2);
+  z = f() + three;
 end
