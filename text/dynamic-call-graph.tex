@@ -36,17 +36,14 @@ this isn't an option for us.
 \item \emph{Method wrappers}. This refers to some mechanism for introducing
 code to be executed before, after, or instead of a function. Our particular
 source-to-source transformation, described later, can be seen of an instance of
-this technique; we also, as an alternative, implement it using aspect-oriented
-programming, which is perhaps closer to the intended meaning.
+this technique.
 \item \emph{Debuggers}. While the reference \matlab implementation does include
 a debugger, we prefer not to couple ourselves too tightly to it, as it is not
 under our control.
 \end{itemize}
 
 The most natural and portable approach is source code modification. We can
-implement using the infrastructure provided as part of the \mclab toolkit, and
-also an AspectMatlab aspect, in order to compare the viability and performance
-of the two approaches.
+implement it using the infrastructure provided as part of the \mclab toolkit.
 
 The high-level idea is to insert logging statements before every possible call
 site, and at the start of every function or script. After executing the
@@ -145,3 +142,101 @@ immediately followed by an \texttt{enter} event.
 \caption{An example of the callgraph tracing transformation.}
 \label{Fig:CallgraphBeforeAfter}
 \end{figure}
+
+% TODO(isbadawi): Show example of trace and JSON callgraph
+
+\section{Dealing with builtin and library functions}
+
+The abovementioned instrumentation can't be applied to \matlab builtin
+functions. It could potentially be applied to library functions, assuming their
+source code was available and they were written in \matlab and not native code.
+That being said, if the goal is to enable useful code navigation features, then
+instrumenting library functions is of dubious utility. In any case, during the
+course of a profiling run, control flow is likely to be passed to a builtin or
+otherwise uninstrumented function, which could then call back into the project
+code, for instance via a passed-in function handle, a method call on a
+passed-in object, or the use of \matlab's reflective features, possibly using
+passed-in arguments to compute names of functions or methods to call. In the
+presence of such code, our approach is unsound; builtin functions calling back
+into project code could manifest in the produced call graph as an edge linking
+a call to a builtin function and a user-defined function, a handle to which was
+passed in somewhere.
+
+To preserve the soundness of our approach even in such cases, we rely on more
+of \matlab's reflective features. In particular, the \texttt{functions} builtin
+function allows us to inspect the contents of a function handle at runtime, and
+determine which function it points to, the path to the file in which that
+function was defined if applicable, and whether or not it's a builtin function.
+Using this facility, we modify \texttt{mclab\_callgraph\_log\_then\_run} as
+shown in \figref{Fig:LogThenRunBuiltin} to insert extra markers in the call
+trace in order to distinguish calls to builtin functions. These markers are
+ignored by the call graph construction step, but their presence in the trace
+separates builtin call sites from user-defined function entrances, avoiding
+the addition of the problematic edges.
+
+\begin{figure}
+\lstinputlisting[numbers=none]{code/callgraph_builtins.m}
+\caption{Dealing with builtin functions at runtime.}
+\label{Fig:LogThenRunBuiltin}
+\end{figure}
+
+% TODO(isbadawi): See "Application-only Call Graph Construction", ECOOP 2012?
+
+\section{Instrumentation performance overhead}
+
+\section{Heuristics for minimizing call graph invalidation}
+
+The call graph computed from a profiling run maps source positions to other
+source positions. As such, it is extremely sensitive to even minor changes to
+the project code -- even ostensibly inconsequential changes like adding
+whitespace or comments would invalidate portions of the call graph as tokens
+are shifted around. A sufficiently sophisticated implementation can ward
+against this by keeping track of the moving tokens and computing offsets as
+needed before querying the call graph. A larger issue is that, a priori, the
+effect of a textual code change on the call graph is not obvious, requiring us
+to update the call graph in the face of any change, no matter how minor, in
+order to ensure stale edges are excised. Further, profiling doesn't really lend
+itself to any sort of incremental call graph updating scheme; our only real
+means of updating the call graph is to invalidate it and replace it with the
+result of triggering another execution. Depending on the project and the
+provided entry point code, each execution could potentially be expensive --
+likely too expensive for our purposes, since in an IDE, unlike in some other
+applications of call graphs, the code is apt to be in constant flux,
+practically requiring us to be triggering an execution whenever the user stops
+typing. Given all this, we would like to somehow make our call graph more
+robust in the face of code changes.
+
+\subsection{Multiple entry points}
+
+Rather a relying on a single entry point to guide profiling runs, multiple
+entry points can be provided, ideally each small and independent, analogously
+to different tests in a unit test suite. During the profiling run, each entry
+point is executed in turn, each resulting in its own call graph. These are then
+combined into a composite call graph, queries against which are resolved by
+forwarding them to each component call graph in turn and concatenating the
+results together.
+
+The advantage of this approach is that each entry point's call graph can be
+invalidated independently. When a file is modified, only call graphs where
+at least one node corresponds to a position within that file are discarded.
+When queries are submitted to the composite call graph, it can attempt to
+answer them with the remaining information. A profiling run only needs to be
+triggered if the query comes up empty, and only the invalidated entry points
+need to be executed again.
+
+\subsection{Classifying edits}
+% Try to determine just based on the edit whether recomputing is needed.
+% If somehow we can determine that the callgraph is the same, then we just
+% need to deal with tokens shifting around, which shouldn't be too bad.
+% (Can maybe use Anchors in ace to track tokens moving).
+%   e.g. Were function calls added or removed?
+%   e.g. Are the arguments to the function calls the same?
+%   Maybe do a diff of the AST?
+
+% Invalidate only affected portions of the callgraph?
+
+\section{Related work}
+
+% Look into context-sensitive call graphs? Would be neat, but not sure what
+% a good UI would be to exploit this information in the IDE...
+% "Efficient Construction of Approximate Call Graphs for JavaScript IDE Services", ICSE 2013
