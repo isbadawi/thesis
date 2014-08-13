@@ -1,0 +1,14 @@
+{
+  "for_each_file@code_size.m:7,3": [
+    "for_each_file@for_each_file.m:1,10"
+  ],
+  "handler@for_each_file.m:8,7": [
+    "add_size@code_size.m:3,12"
+  ],
+  "is_in@for_each_file.m:5,9": [
+    "is_in@for_each_file.m:17,14"
+  ],
+  "string_ends_with@for_each_file.m:7,12": [
+    "string_ends_with@for_each_file.m:13,14"
+  ]
+}

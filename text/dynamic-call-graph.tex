@@ -69,15 +69,14 @@ handle (either a function handle expression, or a variable that contains a
 function handle), then we log the string to the file, and in either case we
 forward the arguments to the variable.
 
-\begin{figure}
+\begin{figure}[htbp]
 \lstinputlisting[numbers=none]{code/callgraph_runtime.m}
 \caption{The runtime components of the callgraph tracer.}
 \label{Fig:CallgraphRuntime}
 \end{figure}
 
 Assuming these runtime functions are available, we traverse the whole project
-and perform the following transformations. \figref{Fig:CallgraphBeforeAfter} shows
-the effect of the transformation on a piece of \matlab code.
+and perform the following transformations.
 
 \begin{itemize}
 
@@ -126,24 +125,53 @@ Finally, in order to trigger a tracing execution, an entry point is needed --
 that is, a piece of code that will attempt to exercise as much of the subject
 code as possible. This is handed off to the tracing machinery, which will first
 instrument the project as described (in a temporary folder), create a temporary
-file to hold the logs, and invoke \matlab, first calling
+file to hold the trace, and invoke \matlab, first calling
 \texttt{mclab\_callgraph\_init} with the path to the log file, and then the
-entry point. Once the execution is over, the log file is processed, and call
+entry point. Once the execution is over, the trace is processed, and call
 graph edges are identified by looking for \texttt{call} events that are
-immediately followed by an \texttt{enter} event.
+immediately followed by an \texttt{enter} event. \figref{Fig:CallgraphBefore},
+\figref{Fig:CallgraphAfter}, \figref{Fig:CallgraphTrace} and \figref{Fig:Callgraph}
+together show an end-to-end example; two \matlab files, the result of
+instrumenting them, the generated call trace, and the call graph constructed
+from it.
 
 \begin{figure}[htbp]
-  \begin{minipage}{\linewidth}
-\lstinputlisting[numbers=none]{code/callgraph_before.m}
+\begin{minipage}{\linewidth}
+  \lstinputlisting[numbers=none]{code/callgraph-example/before/for_each_file.m}
 \end{minipage}
 \begin{minipage}{\linewidth}
-\lstinputlisting[numbers=none]{code/callgraph_after.m}
+  \lstinputlisting[numbers=none]{code/callgraph-example/before/code_size.m}
 \end{minipage}
-\caption{An example of the callgraph tracing transformation.}
-\label{Fig:CallgraphBeforeAfter}
+\caption{The application code; for\_each\_file recursively traverses a directory
+tree and invokes a handler for each file with the given extension. code\_size
+uses it to add up the sizes of all the m-files in the current directory.}
+\label{Fig:CallgraphBefore}
 \end{figure}
 
-% TODO(isbadawi): Show example of trace and JSON callgraph
+\begin{figure}[htbp]
+\begin{minipage}{\linewidth}
+  \lstinputlisting[numbers=none]{code/callgraph-example/after/for_each_file.m}
+\end{minipage}
+\begin{minipage}{\linewidth}
+  \lstinputlisting[numbers=none]{code/callgraph-example/after/code_size.m}
+\end{minipage}
+\caption{The same code after instrumentation (with the \texttt{mclab\_callgraph}
+prefix omitted for brevity.)}
+\label{Fig:CallgraphAfter}
+\end{figure}
+
+\begin{figure}[htbp]
+\lstinputlisting[language={}, numbers=none]{code/callgraph-example/trace.txt}
+\caption{The generated trace, using \texttt{code\_size()} as the entry point.
+Some events are omitted for brevity.}
+\label{Fig:CallgraphTrace}
+\end{figure}
+
+\begin{figure}[htbp]
+\lstinputlisting[language={}, numbers=none]{code/callgraph-example/graph.txt}
+\caption{The call graph (in JSON format) produced from the trace.}
+\label{Fig:Callgraph}
+\end{figure}
 
 \section{Dealing with builtin and library functions}
 
@@ -174,11 +202,12 @@ ignored by the call graph construction step, but their presence in the trace
 separates builtin call sites from user-defined function entrances, avoiding
 the addition of the problematic edges.
 
-\begin{figure}
-\lstinputlisting[numbers=none]{code/callgraph_builtins.m}
-\caption{Dealing with builtin functions at runtime.}
+\begin{figure}[htbp]
+  \lstinputlisting[language=Matlab, numbers=none]{code/callgraph_builtins.m}
+\caption{Code to handle builtins at runtime.}
 \label{Fig:LogThenRunBuiltin}
 \end{figure}
+
 
 % TODO(isbadawi): See "Application-only Call Graph Construction", ECOOP 2012?
 

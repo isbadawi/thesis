@@ -1,0 +1,45 @@
+enter code_size@code_size.m:1,10
+call for_each_file@code_size.m:7,3
+enter for_each_file@for_each_file.m:1,10
+...
+call is_in@for_each_file.m:5,9
+enter is_in@for_each_file.m:17,14
+...
+call string_ends_with@for_each_file.m:7,12
+enter string_ends_with@for_each_file.m:13,14
+...
+call is_in@for_each_file.m:5,9
+enter is_in@for_each_file.m:17,14
+...
+call string_ends_with@for_each_file.m:7,12
+enter string_ends_with@for_each_file.m:13,14
+...
+call is_in@for_each_file.m:5,9
+enter is_in@for_each_file.m:17,14
+...
+call string_ends_with@for_each_file.m:7,12
+enter string_ends_with@for_each_file.m:13,14
+...
+call handler@for_each_file.m:8,7
+enter add_size@code_size.m:3,12
+call is_in@for_each_file.m:5,9
+enter is_in@for_each_file.m:17,14
+...
+call string_ends_with@for_each_file.m:7,12
+enter string_ends_with@for_each_file.m:13,14
+...
+call handler@for_each_file.m:8,7
+enter add_size@code_size.m:3,12
+call is_in@for_each_file.m:5,9
+enter is_in@for_each_file.m:17,14
+...
+call string_ends_with@for_each_file.m:7,12
+enter string_ends_with@for_each_file.m:13,14
+...
+call handler@for_each_file.m:8,7
+enter add_size@code_size.m:3,12
+call is_in@for_each_file.m:5,9
+enter is_in@for_each_file.m:17,14
+...
+call string_ends_with@for_each_file.m:7,12
+enter string_ends_with@for_each_file.m:13,14
