@@ -16,7 +16,33 @@ for arbitrary \matlab code. Rather than relying on static analysis, we resort
 to extracting this information dynamically, by instrumenting the input programs
 and tracing their actual execution on a \matlab implementation.
 
-\section{\matlab features complicating call graph computation}
+\section{\matlab features complicating static call graph computation}
+
+\matlab supports a limited form of function overloading or specialization. When
+evaluating a function call, the arguments are evaluated first, and their types
+influence the function lookup. The precise rules governing this lookup
+mechanism are quite involved and described in more detail in \cite{Tamer}. At a
+high level, \matlab inspects the argument types and chooses among them a
+"dominant" type, say \code{foo}. Then, a function defined in any directory
+named \code{@foo/} on \matlab's path will have priority over other
+user-defined functions with the same name. Thus, in order to statically compute
+a call graph in the presence of specialized functions, we also need to carry
+out type inference analysis to approximate these lookup semantics.
+
+Although \matlab's functions are not quite first-class, a special kind of
+object called a function handle can be used as a reference to a function,
+either named or anonymous. These handles can be stored in variables, as well as
+passed and returned from functions. Thus, in order to statically compute a call
+graph in the presence of function handles, interprocedural analysis is required
+to track which variables might hold function handles, and also which functions
+each of these might point to.
+
+In addition to these more traditional challenges, \matlab supports many highly
+dynamic features that complicate any form of static analysis. Among these are
+the evaluation of arbitrary strings as code via calls to the \code{eval}
+family of functions, and a function lookup mechanism that involves searching
+the filesystem at runtime for applicable call targets. More attention is given
+to these in \chapref{chap:DynamicFeatureElimination}.
 
 \section{Call graph tracing instrumentation}
 
@@ -52,17 +78,17 @@ their targets, since the target will follow the call in the log. We define a
 unique identifier $identifier(n)$ for every call site and call target $n$; this
 consists of the name of $n$ (the variable name if it's a variable, the function
 name if it's a function definition, the script name if it's a script, and the
-string \texttt{<lambda>} if it's an anonymous function expression), the file
+string \code{<lambda>} if it's an anonymous function expression), the file
 it's contained in and its position (line and column) within that file. This
 format comes in handy when it comes to implementing navigation features in an
 IDE, as these typically take a textual range (e.g. a mouse selection) as input.
 
 The transformation depends on a few functions (listed in
 \figref{Fig:CallgraphRuntime}) being available at runtime. The
-\texttt{mclab\_callgraph\_init} and \texttt{mclab\_callgraph\_log} functions
+\code{mclab\_callgraph\_init} and \code{mclab\_callgraph\_log} functions
 are straightforward; the former takes a path to a log file, creates it and
 makes a handle to it globally accessible, while the latter takes a string and
-writes it to the file. \newline \texttt{mclab\_callgraph\_log\_then\_run} is more
+writes it to the file. \newline \code{mclab\_callgraph\_log\_then\_run} is more
 complicated; it takes a string, a variable (which is possibly a function
 handle) and a variable number of arguments. If the given variable is a function
 handle (either a function handle expression, or a variable that contains a
@@ -81,29 +107,29 @@ and perform the following transformations.
 \begin{itemize}
 
 \item For every function or script $f$, we insert a call to
-  \texttt{mclab\_callgraph\_log} as the first statement, passing the string
-  \texttt{enter} followed by $identifier(f)$.
+  \code{mclab\_callgraph\_log} as the first statement, passing the string
+  \code{enter} followed by $identifier(f)$.
 
 \item For every anonymous function definition $f$, we replace the body $b$ of the
-  anonymous function with a call to \texttt{mclab\_callgraph\_log\_then\_run},
-  passing the string \texttt{enter} followed by $identifier(f)$ as the first
+  anonymous function with a call to \code{mclab\_callgraph\_log\_then\_run},
+  passing the string \code{enter} followed by $identifier(f)$ as the first
   argument, and the original expression $b$ wrapped in an anonymous function
   expression taking no arguments as the second argument.
 
 \item We replace every function call $n$ (as identified by the kind analysis)
-  with a call to \texttt{mclab\_callgraph\_log\_then\_run}, passing the string
-  \texttt{call} followed by $identifier(n)$ as the first argument, a handle to
+  with a call to \code{mclab\_callgraph\_log\_then\_run}, passing the string
+  \code{call} followed by $identifier(n)$ as the first argument, a handle to
   the target function as the second argument, and copies of the original
   arguments as the rest of the arguments.
 
   One caveat here is that there can be functions whose return value
-  depends on the current execution context. For instance, \texttt{nargin} and
-  \texttt{nargout} are builtin functions that return the number of input and
+  depends on the current execution context. For instance, \code{nargin} and
+  \code{nargout} are builtin functions that return the number of input and
   output parameters passed to the current function. If we call these functions
-  inside \texttt{mclab\_callgraph\_log\_then\_run} instead of the original
+  inside \code{mclab\_callgraph\_log\_then\_run} instead of the original
   function, they won't necessarily return the same value. As such, we avoid
   instrumenting calls to these functions, among other reflective functions such
-  as \texttt{narginchk} and \texttt{inputname}.
+  as \code{narginchk} and \code{inputname}.
 
 \item While the kind analysis distinguishes between function calls and variable
   accesses, it doesn't distinguish among the latter between array accesses and
@@ -111,7 +137,7 @@ and perform the following transformations.
   function handles, we also instrument variable accesses in the same way as for
   function calls, only rather than passing in a function handle expression as
   the second argument, we just pass in the variable. At runtime,
-  \texttt{mclab\_callgraph\_log\_then\_run} makes use of \matlab's reflective
+  \code{mclab\_callgraph\_log\_then\_run} makes use of \matlab's reflective
   features to identify function handles, and only logs the call event in those
   cases. One small detail here is that an array access might have a colon
   literal as one of its arguments, and passing it to a function instead will
@@ -126,10 +152,10 @@ that is, a piece of code that will attempt to exercise as much of the subject
 code as possible. This is handed off to the tracing machinery, which will first
 instrument the project as described (in a temporary folder), create a temporary
 file to hold the trace, and invoke \matlab, first calling
-\texttt{mclab\_callgraph\_init} with the path to the log file, and then the
+\code{mclab\_callgraph\_init} with the path to the log file, and then the
 entry point. Once the execution is over, the trace is processed, and call
-graph edges are identified by looking for \texttt{call} events that are
-immediately followed by an \texttt{enter} event. \figref{Fig:CallgraphBefore},
+graph edges are identified by looking for \code{call} events that are
+immediately followed by an \code{enter} event. \figref{Fig:CallgraphBefore},
 \figref{Fig:CallgraphAfter}, \figref{Fig:CallgraphTrace} and \figref{Fig:Callgraph}
 together show an end-to-end example; two \matlab files, the result of
 instrumenting them, the generated call trace, and the call graph constructed
@@ -155,14 +181,14 @@ uses it to add up the sizes of all the m-files in the current directory.}
 \begin{minipage}{\linewidth}
   \lstinputlisting[numbers=none]{code/callgraph-example/after/code_size.m}
 \end{minipage}
-\caption{The same code after instrumentation (with the \texttt{mclab\_callgraph}
+\caption{The same code after instrumentation (with the \code{mclab\_callgraph}
 prefix omitted for brevity.)}
 \label{Fig:CallgraphAfter}
 \end{figure}
 
 \begin{figure}[htbp]
 \lstinputlisting[language={}, numbers=none]{code/callgraph-example/trace.txt}
-\caption{The generated trace, using \texttt{code\_size()} as the entry point.
+\caption{The generated trace, using \code{code\_size()} as the entry point.
 Some events are omitted for brevity.}
 \label{Fig:CallgraphTrace}
 \end{figure}
@@ -191,11 +217,11 @@ a call to a builtin function and a user-defined function, a handle to which was
 passed in somewhere.
 
 To preserve the soundness of our approach even in such cases, we rely on more
-of \matlab's reflective features. In particular, the \texttt{functions} builtin
+of \matlab's reflective features. In particular, the \code{functions} builtin
 function allows us to inspect the contents of a function handle at runtime, and
 determine which function it points to, the path to the file in which that
 function was defined if applicable, and whether or not it's a builtin function.
-Using this facility, we modify \texttt{mclab\_callgraph\_log\_then\_run} as
+Using this facility, we modify \code{mclab\_callgraph\_log\_then\_run} as
 shown in \figref{Fig:LogThenRunBuiltin} to insert extra markers in the call
 trace in order to distinguish calls to builtin functions. These markers are
 ignored by the call graph construction step, but their presence in the trace
@@ -208,12 +234,11 @@ the addition of the problematic edges.
 \label{Fig:LogThenRunBuiltin}
 \end{figure}
 
-
 % TODO(isbadawi): See "Application-only Call Graph Construction", ECOOP 2012?
 
 \section{Instrumentation performance overhead}
 
-\section{Heuristics for minimizing call graph invalidation}
+\section{Minimizing call graph invalidation}
 
 The call graph computed from a profiling run maps source positions to other
 source positions. As such, it is extremely sensitive to even minor changes to
@@ -237,7 +262,7 @@ robust in the face of code changes.
 
 \subsection{Multiple entry points}
 
-Rather a relying on a single entry point to guide profiling runs, multiple
+Rather than relying on a single entry point to guide profiling runs, multiple
 entry points can be provided, ideally each small and independent, analogously
 to different tests in a unit test suite. During the profiling run, each entry
 point is executed in turn, each resulting in its own call graph. These are then
@@ -246,26 +271,48 @@ forwarding them to each component call graph in turn and concatenating the
 results together.
 
 The advantage of this approach is that each entry point's call graph can be
-invalidated independently. When a file is modified, only call graphs where
-at least one node corresponds to a position within that file are discarded.
-When queries are submitted to the composite call graph, it can attempt to
-answer them with the remaining information. A profiling run only needs to be
-triggered if the query comes up empty, and only the invalidated entry points
-need to be executed again.
+invalidated independently. When a file is modified, only call graphs where at
+least one node corresponds to a position within that file are discarded. When
+queries are submitted to the composite call graph, it can attempt to answer
+them with the remaining information. A profiling run only needs to be triggered
+if the query comes up empty, and only the invalidated entry points need to be
+executed again.
+
+% TODO(isbadawi): Does this make sense? Because call graph queries can have
+% multiple answers, so even if your result is nonempty, updating the call
+% graph could still give you more.
 
 \subsection{Classifying edits}
-% Try to determine just based on the edit whether recomputing is needed.
-% If somehow we can determine that the callgraph is the same, then we just
-% need to deal with tokens shifting around, which shouldn't be too bad.
-% (Can maybe use Anchors in ace to track tokens moving).
-%   e.g. Were function calls added or removed?
-%   e.g. Are the arguments to the function calls the same?
-%   Maybe do a diff of the AST?
 
-% Invalidate only affected portions of the callgraph?
+Rather than invalidating the call graph on every change, we can try to be more
+discriminating. As alluded to earlier, it is likely difficult if not impossible
+in general to reliably predict whether a given change requires an update to the
+call graph. However, given a description of the differences between the two
+versions of the code, we can apply some heuristics to avoid recomputation in
+some cases. If we can somehow determine that a given change will have no effect
+on the call graph, then we just need to keep track of offsets to add to token
+positions before querying the call graph.
+
+A natural first approach is to parse both versions of the code and apply a tree
+differencing algorithm on the two ASTs. If the trees have the same structure,
+which might happen if the change affected only the layout of the code, for
+instance by adding or removing comments or adjusting the indentation, then the
+behavior of the code is the same. Parsing might be expensive, but is likely to
+be required by different components of an IDE anyhow; for example, a typical
+feature provided by IDEs is syntax checking, whereby syntax errors are
+presented to the user as they type. Thus, there is only the added cost of
+applying the differencing algorithm.
+
+% Maybe parsing is not required in some cases -- can determine whether a
+% change is whitespace only just by looking at the diff.
+% (but MATLAB is whitespace sensitive in some cases...)
+% But if we're parsing anyway, does this matter?
 
 \section{Related work}
 
+% Look at trace summarization, or compaction?
+
 % Look into context-sensitive call graphs? Would be neat, but not sure what
 % a good UI would be to exploit this information in the IDE...
+
 % "Efficient Construction of Approximate Call Graphs for JavaScript IDE Services", ICSE 2013

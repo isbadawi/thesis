@@ -380,14 +380,14 @@ deal with delimiters. For example, adding a second argument to a function call
 requires inserting a comma before the text corresponding to the expression.
 Similarly, removing an argument requires removing the corresponding comma.
 
-Since the Transformer API takes all parameters as \texttt{ASTNode<?>}, the root
+Since the Transformer API takes all parameters as \code{ASTNode<?>}, the root
 of the AST node class hierarchy, it doesn't necessarily know which delimiters
 to use. One way to address this would be to have the Transformer API expose
 different operations to manipulate statement lists, argument lists, and
 parameter lists, but that would entail a much larger API surface -- a
 disportionate cost for what should be a minor concern. Instead, the
 transformation engine handles this by inspecting the AST fragments handed to
-the \texttt{insert} and \texttt{remove} operations. By inspecting the structure
+the \code{insert} and \code{remove} operations. By inspecting the structure
 of the AST and performing some runtime checks to determine the context we're
 operating in, we can distinguish between the different cases we need to handle.
 For example, \figref{Fig:WhereAreWe} shows a small method we can use to tell
@@ -408,11 +408,11 @@ private boolean isInputParamList(ASTNode<?> node) {
 
 Another case where the transformation engine may need to synthesize extra code
 is the preservation of operator precedence. \figref{Fig:NeedParens} shows
-a motivating example -- if we want to inline the \texttt{x} variable, the
+a motivating example -- if we want to inline the \code{x} variable, the
 expression on the right hand side needs to be wrapped in parentheses. This
 should ideally be transparent to the calling code, where this should be simply
-a call to the \texttt{replace} operation. As a simple heuristic to handle cases
-like these, the transformation engine checks during the \texttt{copy} operation
+a call to the \code{replace} operation. As a simple heuristic to handle cases
+like these, the transformation engine checks during the \code{copy} operation
 whether the copied node is a binary expression, and wraps it with parentheses
 if they're not already there.
 
