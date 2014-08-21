@@ -65,11 +65,11 @@ functions as a simplification step.
 
 \begin{figure}
 \begin{minipage}{0.5\linewidth}
-\lstinputlisting[numbers=none]{code/cube_original.m}
+\lstinputlisting{code/cube_original.m}
 \end{minipage}
 \hfill \hspace{.3cm} \hfill
 \begin{minipage}{0.5\linewidth}
-\lstinputlisting[numbers=none]{code/cube_roundtrip.m}
+\lstinputlisting{code/cube_roundtrip.m}
 \end{minipage}
 \caption{An example of the lossy parsing and unparsing roundtrip.}
 \label{Fig:LostLayout}
@@ -111,13 +111,13 @@ that just falls back on the operations exposed by the AST, ignoring layout
 concerns; note the close correspondence between the two sets of operations.
 
 \begin{figure}[htbp]
-\lstinputlisting[numbers=none, language=Java]{code/Transformer.java}
+\lstinputlisting[language=Java]{code/Transformer.java}
 \caption{The Transformer API, encoded as a Java interface}
 \label{Fig:TransformerAPI}
 \end{figure}
 
 \begin{figure}
-\lstinputlisting[numbers=none, language=Java]{code/BasicTransformer.java}
+\lstinputlisting[language=Java]{code/BasicTransformer.java}
 \caption{A trivial implementation of the Transformer API}
 \label{Fig:BasicTransformer}
 \end{figure}
@@ -328,7 +328,7 @@ implementation, as each node might have several disparate token stream
 fragments associated with it.
 
 \begin{figure}
-\begin{lstlisting}[numbers=none, keepspaces=true]
+\begin{lstlisting}[keepspaces=true]
 function_call()  % This comment spans multiple lines
 another_call()   % and lies adjacent to many statements
 some_core_code() % but should be considered associated with
@@ -396,7 +396,7 @@ function; in that case, we would know to use commas as delimiters, and also to
 surround the list with square brackets as needed.
 
 \begin{figure}
-\begin{lstlisting}[language=Java, numbers=none]
+\begin{lstlisting}[language=Java]
 private boolean isInputParamList(ASTNode<?> node) {
   return node.getParent() instanceof Function &&
       ((Function) node.getParent()).getInputParams() == node;
@@ -418,11 +418,11 @@ if they're not already there.
 
 \begin{figure}
 \begin{minipage}{0.5\linewidth}
-\lstinputlisting[numbers=none]{code/inline_parens_original.m}
+\lstinputlisting{code/inline_parens_original.m}
 \end{minipage}
 \hfill \hspace{.3cm} \hfill
 \begin{minipage}{0.5\linewidth}
-\lstinputlisting[numbers=none]{code/inline_parens_transformed.m}
+\lstinputlisting{code/inline_parens_transformed.m}
 \end{minipage}
 \caption{An example illustrating the need for synthesized parentheses.}
 \label{Fig:NeedParens}
@@ -442,10 +442,10 @@ the transformation API.
 
 \begin{figure}
 \begin{minipage}{\linewidth}
-\lstinputlisting[numbers=none, language=Java]{code/InlineVariableBefore.java}
+\lstinputlisting[language=Java]{code/InlineVariableBefore.java}
 \end{minipage}
 \begin{minipage}{\linewidth}
-\lstinputlisting[numbers=none, language=Java]{code/InlineVariable.java}
+\lstinputlisting[language=Java]{code/InlineVariable.java}
 \end{minipage}
 \caption{The original implementation of the Inline Variable refactoring using plain
 AST operations, and the new implementation against the Transformer API.}
@@ -460,7 +460,7 @@ text, the code is completely oblivious to text, instead leaning on the {\tt
 Transformer} to do the heavy lifting.
 
 \begin{figure}
-\lstinputlisting[numbers=none, language=Java]{code/ExtractFunction.java}
+\lstinputlisting[language=Java]{code/ExtractFunction.java}
 \caption{The implementation of the Extract Function refactoring using the transformer API}
 \label{Fig:ExtractFunction}
 \end{figure}

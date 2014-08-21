@@ -96,7 +96,7 @@ function handle), then we log the string to the file, and in either case we
 forward the arguments to the variable.
 
 \begin{figure}[htbp]
-\lstinputlisting[numbers=none]{code/callgraph_runtime.m}
+\lstinputlisting{code/callgraph_runtime.m}
 \caption{The runtime components of the callgraph tracer.}
 \label{Fig:CallgraphRuntime}
 \end{figure}
@@ -163,10 +163,10 @@ from it.
 
 \begin{figure}[htbp]
 \begin{minipage}{\linewidth}
-  \lstinputlisting[numbers=none]{code/callgraph-example/before/for_each_file.m}
+  \lstinputlisting{code/callgraph-example/before/for_each_file.m}
 \end{minipage}
 \begin{minipage}{\linewidth}
-  \lstinputlisting[numbers=none]{code/callgraph-example/before/code_size.m}
+  \lstinputlisting{code/callgraph-example/before/code_size.m}
 \end{minipage}
 \caption{The application code; for\_each\_file recursively traverses a directory
 tree and invokes a handler for each file with the given extension. code\_size
@@ -176,10 +176,10 @@ uses it to add up the sizes of all the m-files in the current directory.}
 
 \begin{figure}[htbp]
 \begin{minipage}{\linewidth}
-  \lstinputlisting[numbers=none]{code/callgraph-example/after/for_each_file.m}
+  \lstinputlisting{code/callgraph-example/after/for_each_file.m}
 \end{minipage}
 \begin{minipage}{\linewidth}
-  \lstinputlisting[numbers=none]{code/callgraph-example/after/code_size.m}
+  \lstinputlisting{code/callgraph-example/after/code_size.m}
 \end{minipage}
 \caption{The same code after instrumentation (with the \code{mclab\_callgraph}
 prefix omitted for brevity.)}
@@ -187,14 +187,14 @@ prefix omitted for brevity.)}
 \end{figure}
 
 \begin{figure}[htbp]
-\lstinputlisting[language={}, numbers=none]{code/callgraph-example/trace.txt}
+\lstinputlisting[language={}]{code/callgraph-example/trace.txt}
 \caption{The generated trace, using \code{code\_size()} as the entry point.
 Some events are omitted for brevity.}
 \label{Fig:CallgraphTrace}
 \end{figure}
 
 \begin{figure}[htbp]
-\lstinputlisting[language={}, numbers=none]{code/callgraph-example/graph.txt}
+\lstinputlisting[language={}]{code/callgraph-example/graph.txt}
 \caption{The call graph (in JSON format) produced from the trace.}
 \label{Fig:Callgraph}
 \end{figure}
@@ -229,7 +229,7 @@ separates builtin call sites from user-defined function entrances, avoiding
 the addition of the problematic edges.
 
 \begin{figure}[htbp]
-  \lstinputlisting[language=Matlab, numbers=none]{code/callgraph_builtins.m}
+  \lstinputlisting{code/callgraph_builtins.m}
 \caption{Code to handle builtins at runtime.}
 \label{Fig:LogThenRunBuiltin}
 \end{figure}
