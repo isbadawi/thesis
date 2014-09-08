@@ -63,10 +63,11 @@ each of these might point to.
 
 In addition to these more traditional challenges, \matlab supports many highly
 dynamic features that complicate any form of static analysis. Among these are
-the evaluation of arbitrary strings as code via calls to the \code{eval}
-family of functions, and a function lookup mechanism that involves searching
-the filesystem at runtime for applicable call targets. More attention is given
-to these in \chapref{chap:DynamicFeatureElimination}.
+the evaluation of arbitrary strings as code via calls to the \code{eval} family
+of functions, and a function lookup mechanism that involves crawling the
+filesystem at runtime -- starting from a current directory that can be changed
+at runtime -- in search of applicable call targets. More attention is given to
+these in \chapref{chap:DynamicFeatureElimination}.
 
 \section{Call graph tracing instrumentation}
 
