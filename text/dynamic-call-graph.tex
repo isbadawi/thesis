@@ -12,9 +12,15 @@ as \fortran or \xten \cite{Tamer}. As we mean to support regular \matlab
 development, carving out such a subset is not an acceptable approach.
 
 In this chapter, we present our approach to computing an accurate call graph
-for arbitrary \matlab code. Rather than relying on static analysis, we resort
-to extracting this information dynamically, by instrumenting the input programs
-and tracing their actual execution on a \matlab implementation.
+for arbitrary \matlab code. Rather than relying on static analysis, we extract
+this information dynamically, by instrumenting the input programs and tracing
+their actual execution on a \matlab implementation. This allows us to provide
+precise code navigation even in the presence of features that have
+traditionally been hard to reason about statically, such as calls to
+\code{eval}. This precision comes at the cost of soundness, as the computed
+call graphs are correct only with respect to a set of recorded program runs,
+and some extra work for the programmer, whose responsibility it becomes to
+provide entry points into the project that cover enough code to be useful.
 
 \section{\matlab features complicating static call graph computation}
 
@@ -28,6 +34,8 @@ named \code{@foo/} on \matlab's path will have priority over other
 user-defined functions with the same name. Thus, in order to statically compute
 a call graph in the presence of specialized functions, we also need to carry
 out type inference analysis to approximate these lookup semantics.
+
+% TODO(isbadawi): Maybe describe lookup semantics in more detail.
 
 Although \matlab's functions are not quite first-class, a special kind of
 object called a function handle can be used as a reference to a function,
@@ -161,6 +169,8 @@ together show an end-to-end example; two \matlab files, the result of
 instrumenting them, the generated call trace, and the call graph constructed
 from it.
 
+% TODO(isbadawi): Describe examples more fully.
+
 \begin{figure}[htbp]
 \begin{minipage}{\linewidth}
   \lstinputlisting{code/callgraph-example/before/for_each_file.m}
@@ -250,6 +260,20 @@ the addition of the problematic edges.
 
 \section{Instrumentation performance overhead}
 
+% TODO(isbadawi): Run benchmarks with/without instrumenting
+
+\subsection{Minimizing overhead}
+
+The bulk of the runtime overhead of our approach stems from instrumenting each
+function call and variable access, which is ultimately caused by our inability
+to precisely distinguish arrays from function handles statically. Yet arrays
+are apt to be much more common than function handles, so that the cost of
+instrumenting each array access is disproportionate relative to the benefit.
+
+% TODO(isbadawi): Write about these two things:
+% Using handle propagation analysis to avoid instrumenting arrays
+% Checking each variable only once at runtime instead of on each use...
+
 \section{Minimizing call graph invalidation}
 
 The call graph computed from a profiling run maps source positions to other
@@ -314,6 +338,8 @@ be required by different components of an IDE anyhow; for example, a typical
 feature provided by IDEs is syntax checking, whereby syntax errors are
 presented to the user as they type. Thus, there is only the added cost of
 applying the differencing algorithm.
+
+% TODO(isbadawi): Flesh this out, more formal
 
 % Maybe parsing is not required in some cases -- can determine whether a
 % change is whitespace only just by looking at the diff.
