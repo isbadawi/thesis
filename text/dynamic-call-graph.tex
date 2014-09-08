@@ -24,18 +24,34 @@ provide entry points into the project that cover enough code to be useful.
 
 \section{\matlab features complicating static call graph computation}
 
-\matlab supports a limited form of function overloading or specialization. When
-evaluating a function call, the arguments are evaluated first, and their types
-influence the function lookup. The precise rules governing this lookup
-mechanism are quite involved and described in more detail in \cite{Tamer}. At a
-high level, \matlab inspects the argument types and chooses among them a
-"dominant" type, say \code{foo}. Then, a function defined in any directory
-named \code{@foo/} on \matlab's path will have priority over other
-user-defined functions with the same name. Thus, in order to statically compute
-a call graph in the presence of specialized functions, we also need to carry
-out type inference analysis to approximate these lookup semantics.
+\matlab supports a limited form of function overloading or specialization. In
+particular, it has a notion of \emph{superior} and \emph{inferior} types. While
+the precise rules governing this relation are not documented anywhere, Dubrau
+and Hendren, after exhaustively exercising each case, produced a diagram
+(reproduced in \figref{fig:BuiltinClassRelationships}) describing the superior
+and inferior relationships between the different builtin types \cite{Tamer}.
+This relation is not a total ordering, as, for example, a given integer type is
+neither superior nor inferior to the other integer types.
 
-% TODO(isbadawi): Maybe describe lookup semantics in more detail.
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[width=5.2in]{figures/builtinClassRelationships.eps}
+\caption{Superior/inferior type relationships for \matlab. An arrow points from
+$a$ to $b$ if $a$ is superior to $b$.}
+\label{fig:BuiltinClassRelationships}
+\end{center}
+\end{figure}
+
+When a function call is evaluated, the arguments are evaluated first, and their
+types influence the function lookup. In particular, \matlab identifies the most
+superior argument type -- preferring the type of the leftmost superior argument
+in case there is not a unique superior type -- and uses this as the call site's
+"dominant type", say \code{char}. Then, a function defined in any directory
+named \code{@char/} on \matlab's path will have priority over other
+user-defined functions with the same name (with the exception of functions
+nested inside the call site's enclosing function). Thus, in order to statically
+compute a call graph in the presence of specialized functions, we need to carry
+out type inference analysis to approximate these lookup semantics.
 
 Although \matlab's functions are not quite first-class, a special kind of
 object called a function handle can be used as a reference to a function,
@@ -139,6 +155,8 @@ and perform the following transformations.
   instrumenting calls to these functions, among other reflective functions such
   as \code{narginchk} and \code{inputname}.
 
+  % TODO(isbadawi): Explain why ignoring nargin/nargout is not a problem
+
 \item While the kind analysis distinguishes between function calls and variable
   accesses, it doesn't distinguish among the latter between array accesses and
   function handle invocations. In order to accurately trace control flow through
@@ -170,6 +188,7 @@ instrumenting them, the generated call trace, and the call graph constructed
 from it.
 
 % TODO(isbadawi): Describe examples more fully.
+% TODO(isbadawi): Think more about entry points. Maybe look at command history?
 
 \begin{figure}[htbp]
 \begin{minipage}{\linewidth}
@@ -269,10 +288,30 @@ function call and variable access, which is ultimately caused by our inability
 to precisely distinguish arrays from function handles statically. Yet arrays
 are apt to be much more common than function handles, so that the cost of
 instrumenting each array access is disproportionate relative to the benefit.
+Thus, we apply a few different techniques to try and minimize the amount of
+array accesses that require instrumentation.
 
-% TODO(isbadawi): Write about these two things:
-% Using handle propagation analysis to avoid instrumenting arrays
-% Checking each variable only once at runtime instead of on each use...
+\subsubsection{Handle propagation analysis}
+
+While the \mclab toolkit doesn't provide any facilities for performing
+interprocedural static analysis on arbitrary \matlab code, we can still track
+the flow of function handles through a single function. Where we're able to
+determine that a variable is definitely an array, we can avoid instrumenting
+it.
+
+% TODO(isbadawi): Describe handle propagation analysis
+
+\subsubsection{Redundant class check elimination}
+
+% TODO(isbadawi): Runtime scheme to avoid instrumenting unnecessarily.
+% Can check whether things are handles at the call site, once per variable,
+% and use the results to decide at runtime what to instrument. This might
+% complicate the instrumentation though, as we can't just wrap expressions.
+%
+% Could maybe, for a given statement, get all the variables used, and replace
+% the statement with a conditional where different variables are instrumented
+% along each branch... Simpler: skip instrumenting if none are handles,
+% otherwise instrument everything.
 
 \section{Minimizing call graph invalidation}
 
