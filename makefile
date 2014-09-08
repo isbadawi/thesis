@@ -23,10 +23,6 @@ thesis.dvi:  *.tex text/*.tex
 	latex thesis < /dev/null
 	latex thesis < /dev/null
 
-copyfigs:
-	cp images/figs/*.pdf images/
-	cp images/figs/*.eps images/
-
 %.pdf: %.fig
 	fig2dev -L pdf $< $@
 
@@ -34,5 +30,4 @@ copyfigs:
 	fig2dev -L eps $< $@
 
 clean:
-	rm -f *.dvi *.aux *.log *.ps *.toc *.lof *.lot *.lol *.out *.bbl *.blg images/figs/*.pdf images/figs/*.eps
-
+	rm -f *.dvi *.aux *.log *.ps *.toc *.lof *.lot *.lol *.out *.bbl *.blg
