@@ -154,9 +154,12 @@ and perform the following transformations.
   inside \code{mclab\_callgraph\_log\_then\_run} instead of the original
   function, they won't necessarily return the same value. As such, we avoid
   instrumenting calls to these functions, among other reflective functions such
-  as \code{narginchk} and \code{inputname}.
+  as \code{narginchk} and \code{inputname}. This doesn't really impact our
+  precision, since these functions just return values, and can't for example
+  call back into application code.
 
   % TODO(isbadawi): Explain why ignoring nargin/nargout is not a problem
+  % TODO(isbadawi): Not instrumenting builtins we don't need.
 
 \item While the kind analysis distinguishes between function calls and variable
   accesses, it doesn't distinguish among the latter between array accesses and
@@ -182,11 +185,38 @@ file to hold the trace, and invoke \matlab, first calling
 \code{mclab\_callgraph\_init} with the path to the log file, and then the
 entry point. Once the execution is over, the trace is processed, and call
 graph edges are identified by looking for \code{call} events that are
-immediately followed by an \code{enter} event. \figref{Fig:CallgraphBefore},
-\figref{Fig:CallgraphAfter}, \figref{Fig:CallgraphTrace} and \figref{Fig:Callgraph}
-together show an end-to-end example; two \matlab files, the result of
-instrumenting them, the generated call trace, and the call graph constructed
-from it.
+immediately followed by an \code{enter} event.
+
+\figref{Fig:CallgraphBefore}, \figref{Fig:CallgraphAfter},
+\figref{Fig:CallgraphTrace} and \figref{Fig:Callgraph} together show an
+end-to-end example.
+
+\begin{itemize}
+
+\item \figref{Fig:CallgraphBefore} shows the application code.
+  \code{for\_each\_file} recursively traverses a directory tree (using the
+  builtin function \code{dir} as a primitive) and invokes a passed-in handler
+  for each file with the given extension, making use of the helper functions
+  \code{string\_ends\_with} and \code{is\_in} along the way. \code{code\_size}
+  calls \code{for\_each\_file}, passing in a handle to the nested function
+  \code{add\_size} as the handler. In \matlab, nested functions are closures,
+  so that \code{add\_size} can read and write to the \code{total\_size}
+  variable in the enclosing scope. In this way, \code{code\_size} adds up the
+  sizes of all the m-files in the current directory.
+
+\item \figref{Fig:CallgraphAfter} shows the same code after instrumentation
+  (with all instances of the \code{mclab\_callgraph\_} prefix omitted for
+  brevity).
+
+\item \figref{Fig:CallgraphTrace} shows the generated trace, using an invocation
+  of \code{code\_size()} as the entry point. Some events are omitted for brevity.
+
+\item Finally, \figref{Fig:Callgraph} shows the call graph produced by
+  processing the trace and matching up \code{call} and \code{enter} events.
+  The call graph is in JSON format, mapping, for each covered call site, the
+  call site's identifier to an array of function identifiers.
+
+\end{itemize}
 
 % TODO(isbadawi): Describe examples more fully.
 % TODO(isbadawi): Think more about entry points. Maybe look at command history?
@@ -198,9 +228,7 @@ from it.
 \begin{minipage}{\linewidth}
   \lstinputlisting{code/callgraph-example/before/code_size.m}
 \end{minipage}
-\caption{The application code; for\_each\_file recursively traverses a directory
-tree and invokes a handler for each file with the given extension. code\_size
-uses it to add up the sizes of all the m-files in the current directory.}
+\caption{The application code.}
 \label{Fig:CallgraphBefore}
 \end{figure}
 
@@ -211,21 +239,19 @@ uses it to add up the sizes of all the m-files in the current directory.}
 \begin{minipage}{\linewidth}
   \lstinputlisting{code/callgraph-example/after/code_size.m}
 \end{minipage}
-\caption{The same code after instrumentation (with the \code{mclab\_callgraph}
-prefix omitted for brevity.)}
+\caption{The same code after instrumentation.}
 \label{Fig:CallgraphAfter}
 \end{figure}
 
 \begin{figure}[htbp]
 \lstinputlisting[language={}]{code/callgraph-example/trace.txt}
-\caption{The generated trace, using \code{code\_size()} as the entry point.
-Some events are omitted for brevity.}
+\caption{The generated trace.}
 \label{Fig:CallgraphTrace}
 \end{figure}
 
 \begin{figure}[htbp]
 \lstinputlisting[language={}]{code/callgraph-example/graph.txt}
-\caption{The call graph (in JSON format) produced from the trace.}
+\caption{The generated call graph.}
 \label{Fig:Callgraph}
 \end{figure}
 
