@@ -266,35 +266,36 @@ course of a profiling run, control flow is likely to be passed to a builtin or
 otherwise uninstrumented function, which could then call back into the project
 code, for instance via a passed-in function handle, a method call on a
 passed-in object, or the use of \matlab's reflective features, possibly using
-passed-in arguments to compute names of functions or methods to call.
+passed-in arguments to compute names of functions or to call. Without taking
+care to handle this correctly, then in the presence of such code, our approach
+will be unsound, even with respect to the recorded execution.
 
-In the presence of such code, our approach is unsound. For example, consider
-the builtin function \code{arrayfun}, which takes a function handle $f$ and an
-array $a$ and applies $f$ to each element in $a$, returning an array of the
-outputs, analogously to the \code{map} function in functional languages. A call
-to \code{arrayfun} passing in a handle to a user-defined function $f$ will
-manifest in the produced call graph as an edge linking the call to
-\code{arrayfun} with $f$ directly, which isn't quite correct. That information
-may still be useful for code navigation purposes, with the understanding that
-we're tracking how control flow jumps through application code, rather than
-focusing specifically on call sites and their targets, but there again that's
-beyond the scope of a call graph computation. A bigger problem occurs if $f$
-itself calls a builtin function $c$, as control would flow back to
-\code{arrayfun} which would invoke $f$ again, linking together the call to $c$
-with $f$. Unlike the previous case, this has no practical application, and is
-just wrong.
+As an illustrative example, consider the builtin function \code{arrayfun},
+which takes a function handle $f$ and an array $a$ and applies $f$ to each
+element in $a$, returning an array of the outputs, analogously to the
+\code{map} function in functional languages. A call to \code{arrayfun} passing
+in a handle to a user-defined function $f$ will manifest in the produced call
+graph as an edge linking the call to \code{arrayfun} with $f$ directly, which
+isn't quite correct. That information may still be useful for code navigation
+purposes, with the understanding that we're tracking how control flow jumps
+through application code, rather than focusing specifically on call sites and
+their targets, but there again that's beyond the scope of a call graph
+computation. A bigger problem occurs if $f$ itself calls a builtin function
+$c$, as control would flow back to \code{arrayfun} which would invoke $f$
+again, linking together the call to $c$ with $f$. Unlike the previous case,
+this has no practical application, and is just wrong.
 
 To preserve the soundness of our approach even in such cases, we rely on more
 of \matlab's reflective features. In particular, the \code{functions} builtin
 function allows us to inspect the contents of a function handle at runtime, and
 determine which function it points to, the path to the file in which that
 function was defined if applicable, and whether or not it's a builtin function.
-Using this facility, we modify \code{mclab\_callgraph\_log\_then\_run} as
-shown in \figref{Fig:LogThenRunBuiltin} to insert extra markers in the call
-trace in order to distinguish calls to builtin functions. These markers are
-ignored by the call graph construction step, but their presence in the trace
-separates builtin call sites from user-defined function entrances, avoiding
-the addition of the problematic edges.
+Using this facility, we modify \code{mclab\_callgraph\_log\_then\_run} as shown
+in \figref{Fig:LogThenRunBuiltin} to insert extra markers in the call trace in
+order to distinguish calls to builtin functions. These markers are ignored by
+the call graph construction step, but their presence in the trace separates
+builtin call sites from user-defined function entrances, avoiding the addition
+of the problematic edges.
 
 \begin{figure}[htbp]
   \lstinputlisting{code/callgraph_builtins.m}
