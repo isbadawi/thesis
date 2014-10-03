@@ -372,9 +372,10 @@ of one in the input parameters. The relevant query is given in listing
 are of this form, which shouldn't be too hard for an interprocedural analysis
 (assuming we can resolve the call graph difficulty to begin with) to reason
 about statically. It would be possible to rewrite calls of this form to simple
-comparisons against \code{nargin}, a special \matlab variable that indicates the
-number of input parameters passed in, but it's not clear that this would be
-worthwhile, or easier to deal with in any significant way.
+comparisons against \code{nargin}, a builtin \matlab function that returns the
+number of input parameters passed in to the caller's enclosing function, but
+it's not clear that this would be worthwhile, or easier to deal with in any
+significant way.
 
 \begin{lstlisting}[
   language=Matlab,
@@ -441,5 +442,59 @@ the one-argument form replacing the path. We find no calls to
 \code{restoredefaultpath} or \code{savepath}.
 
 \section{Motivation for eliminating uses of dynamic features}
+
+While dynamic features are very powerful, for instance enabling metaprogramming
+techniques that aren't otherwise possible, they are also have many drawbacks.
+
+\subsection{Impact on static analysis and program comprehension}
+
+Compilers and related tools rely on various static analyses to estimate the
+runtime behavior of programs. Such analyses are typically conservative,
+preferring to deduce weaker properties that are guaranteed to always hold for
+all inputs over stronger properties that might not always hold, even if the
+latter would be more useful. This ensures the soundness of any ensuing program
+transformations (such as optimizations) predicated on those analyses.
+
+Highly dynamic features tend to confuse traditional static analysis techniques.
+For example, a call to \code{eval} can have nearly arbitrary side effects.
+Without knowing the exact values passed as arguments -- information which is
+rarely knowable statically -- encountering a call to \code{eval} forces a
+conservative analysis to invalidate all the knowledge it has gathered thus far
+and fall back on safe assumptions. As clients consume the analysis information,
+this imprecision leads to missed optimization opportunities in compilers,
+crippled code navigation features in IDEs, and spurious warnings in static
+analyzers, among others.
+
+\code{eval} is an easy example to pick on, being the most general and powerful
+dynamic construct, but other dynamic features also lead to imprecision.
+Changing the function lookup path obsoletes static information gathered about
+the call graph. Reaching into another function's workspace and assigning to a
+variable invalidates information about identifier lookup, making it hard to
+distinguish between array accesses and function calls. Loading data via calls
+to the \code{load} function complicates reasoning about the shapes of arrays.
+
+\subsection{Performance}
+
+One of the main observations of the previous section is that many uses of
+dynamic features are completely superfluous, and could be equivalently written
+using simpler, less powerful constructs of the language. In those cases, it
+makes sense to consider the performance characteristics of the two approaches.
+
+As an example, one of the principal patterns identified concerns using repeated
+calls to the \code{eval} family of functions in a loop in lieu of using arrays.
+The code in \lstref{Lst:EvalNoArray} calls \code{eval}, invoking the full
+machinery of the interpreter, no fewer than eight times per loop iteration,
+even though each of these could be replaced by two or three array operations.
+Intuitively, we'd expect this to have a huge negative impact on performance.
+
+Beyond interpreter overhead, code that restricts itself to features that are
+easier to reason about statically is apt to be better understood by compilers,
+which rely on sophisticated static analysis to identify candidates for
+optimization. This is not irrelevant; several \matlab compilers exist, and
+recent versions of the proprietary \matlab implementation include a JIT
+compiler. % TODO(isbadawi): Could cite things here
+
+% TODO(isbadawi): Numbers -- compare e.g. code using eval to equivalent
+% static code.
 
 \section{Approaches to dynamic feature elimination}
