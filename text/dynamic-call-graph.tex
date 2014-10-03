@@ -307,7 +307,53 @@ of the problematic edges.
 
 \section{Instrumentation performance overhead}
 
-% TODO(isbadawi): Run benchmarks with/without instrumenting
+A priori, we expect the instrumented code to run at least an order of magnitude
+or two slower than the original code, the main culprit being the wrapping of
+every single function call or variable access with a call to an auxiliary
+function. In order to get a sense of the magnitude of the overhead, we run some
+benchmarks with and without instrumentation. The results are shown in
+\tableref{tab:InstrumentationBenchmarks}.
+
+All the programs were executed on a machine with an Intel\textregistered \,
+Core\texttrademark \, i7 CPU @ 2.4 GHz and 8 GB of memory, running OS X 10.9.4,
+using \matlab version R2014b.
+For each benchmark, we show the running times of the original code and the naive
+instrumented version thus far. The "+ Handle prop", "- Builtins", and "+ Runtime
+checks" columns are the running times with the optimizations described later in
+this section. All running times are in seconds.
+
+\begin{table}
+\begin{tabular}{| l | l | l | l | l | l |}
+  \hline
+  Benchmark & Original & Naive & + Handle prop & - Builtins & + Runtime checks \\ \hline
+  adpt        & 0.105 & 9.867    & & & 2.294\\ \hline
+  arsim       & 0.259 & 0.598    & & & 0.231\\ \hline
+  bbai        & 0.209 & 0.226    & & & 0.205\\ \hline
+  bubble      & 0.006 & 0.010    & & & 0.010\\ \hline
+  capr        & 1.068 & 1641.699 & & & 3.745\\ \hline
+  clos        & 0.266 & 0.245    & & & 0.249\\ \hline
+  create      & 0.033 & 0.070    & & & 0.034\\ \hline
+  crni        & 1.375 & 1605.929 & & & 1.661\\ \hline
+  dich        & 0.388 & 2116.571 & & & 0.394\\ \hline
+  diff        & 0.140 & 243.419  & & & 0.150\\ \hline
+  fdtd        & 0.117 & 0.327    & & & 0.127\\ \hline
+  fft         & 0.011 & 2.138    & & & 0.019\\ \hline
+  fiff        & 0.504 & 1106.703 & & & 0.506\\ \hline
+  lgdr        & 0.016 & 0.024    & & & 0.019\\ \hline
+  mbrt        & 0.221 & 365.613  & & & 0.993\\ \hline
+  mcpi        & 0.007 & 0.013    & & & 0.011\\ \hline
+  nb1d        & 1.058 & 7.209    & & & 1.076\\ \hline
+  nb3d        & 0.280 & 0.616    & & & 0.311\\ \hline
+  numprime    & 0.005 & 0.008    & & & 0.010\\ \hline
+  optstop     & 0.014 & 0.026    & & & 0.027\\ \hline
+  quadrature  & 0.003 & 0.009    & & & 0.011\\ \hline
+  scra        & 0.227 & 0.262    & & & 0.253\\ \hline
+  spqr        & 0.214 & 0.250    & & & 0.235\\ \hline
+\end{tabular}
+\caption{Running times of the instrumented code with different optimizations
+enabled.}
+\label{tab:InstrumentationBenchmarks}
+\end{table}
 
 \subsection{Minimizing overhead}
 
@@ -323,23 +369,48 @@ array accesses that require instrumentation.
 
 While the \mclab toolkit doesn't provide any facilities for performing
 interprocedural static analysis on arbitrary \matlab code, we can still track
-the flow of function handles through a single function. Where we're able to
-determine that a variable is definitely an array, we can avoid instrumenting
-it.
+the flow of function handles through a single function. For each use of a
+variable, we can estimate whether the variable holds only data, or a function
+handle, or possibly a complex data structure with a mix of data and handles.
+Where we're able to determine that a variable is definitely an array containing
+only data, we can avoid instrumenting it.
 
-% TODO(isbadawi): Describe handle propagation analysis
+% TODO(isbadawi): Describe handle propagation analysis, measure effect on
+% relevant benchmarks
 
 \subsubsection{Redundant class check elimination}
 
-% TODO(isbadawi): Runtime scheme to avoid instrumenting unnecessarily.
-% Can check whether things are handles at the call site, once per variable,
-% and use the results to decide at runtime what to instrument. This might
-% complicate the instrumentation though, as we can't just wrap expressions.
-%
-% Could maybe, for a given statement, get all the variables used, and replace
-% the statement with a conditional where different variables are instrumented
-% along each branch... Simpler: skip instrumenting if none are handles,
-% otherwise instrument everything.
+Our instrumentation speculatively wraps each variable access in a function call
+in case the variable is a function handle. A runtime check to determine whether
+it is occurs inside this auxiliary function. This simplifies the
+transformation, but is clearly wasteful if the variable turns out to be a plain
+array variable, especially if the variable is accessed more than once. Since
+\matlab is used a lot for numerical computations, \matlab code tends to be
+heavy on loops, such that array variables are often accessed repeatedly,
+magnifying the overhead. Intuitively, we should be able to check the type of a
+given variable only once, and avoid instrumenting accesses to it at all if it's
+not a function handle.
+
+However, this presents a complication in terms of implementation complexity.
+Wrapping each variable access in a function call is a very simple
+transformation to make, as it just involves replacing an expression AST node
+with another. If we start introducing conditionals, the transformation becomes
+a lot more intrusive, since \matlab does not support any kind of conditional
+expression (such as the ternary \code{\?:} operator in C-based languages), only
+conditional statements. Thus, inserting checks at the right places while
+preserving the order of operations requires destructuring the code into a kind
+of three-address form.
+
+The handle propagation analysis is precise enough in practice if we restrict
+ourselves to a single function -- a lot of the imprecision occurs when arrays
+are passed around as function parameters. As a simple middle ground, we insert
+a single runtime check at the start of each function, checking whether any of
+the arguments to the function is a function handle. In the then branch, we
+insert the original instrumented version of the function. In the else branch,
+we insert another copy of the function where we avoid instrumenting any uses of
+the function parameters. A still more sophisticated approach would be to run
+the handle propagation analysis once for each version with different initial
+information.
 
 \section{Minimizing call graph invalidation}
 
