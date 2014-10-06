@@ -22,7 +22,7 @@ call graphs are correct only with respect to a set of recorded program runs,
 and some extra work for the programmer, whose responsibility it becomes to
 provide entry points into the project that cover enough code to be useful.
 
-\section{\matlab features complicating static call graph computation}
+\section{\matlab features complicating static call graph computation} \label{sec:MatlabLookup}
 
 \matlab supports a limited form of function overloading or specialization. In
 particular, it has a notion of \emph{superior} and \emph{inferior} types. While
@@ -158,9 +158,6 @@ and perform the following transformations.
   precision, since these functions just return values, and can't for example
   call back into application code.
 
-  % TODO(isbadawi): Explain why ignoring nargin/nargout is not a problem
-  % TODO(isbadawi): Not instrumenting builtins we don't need.
-
 \item While the kind analysis distinguishes between function calls and variable
   accesses, it doesn't distinguish among the latter between array accesses and
   function handle invocations. In order to accurately trace control flow through
@@ -255,7 +252,7 @@ end-to-end example.
 \label{Fig:Callgraph}
 \end{figure}
 
-\section{Dealing with builtin and library functions}
+\section{Dealing with builtin and library functions} \label{sec:CallgraphBuiltins}
 
 The abovementioned instrumentation can't be applied to \matlab builtin
 functions. It could potentially be applied to library functions, assuming their
@@ -474,6 +471,36 @@ instrumented code with this enhancement applied (as a slowdown relative to
 the uninstrumented code).
 
 % TODO(isbadawi): More comments after numbers
+
+\subsubsection{Avoiding builtin call instrumentation}
+
+\matlab code tends to be fraught with calls to builtin functions, and
+instrumenting these won't give much benefit, since we don't have access to
+their source code. However, because \matlab builtin functions can be shadowed
+by user-defined functions with the same name, or specialized via the mechanism
+described in \secref{sec:MatlabLookup}, we can't necessarily tell statically
+whether a given function call is a call to a builtin function. Because of this,
+the naive instrumentation goes ahead and instruments every function call, even
+if it likely is a call to a builtin.
+
+As a conservative estimate, when we encounter a potential call to a builtin
+function, we search through the project code, as well as library code, in
+order to check whether any user-defined functions exist with the same name,
+and only skip the instrumentation if there are no such functions. We're not
+looking to statically determine the target of the call, just whether the
+target might be a user-defined function. This is largely a filesystem
+operation, not really static analysis. This assumes we have access to all the
+code the user is apt to run, which is not an unreasonable assumption, given
+that the user is the one using the static analysis.
+
+Note that the decision not to instrument direct calls to builtins doesn't
+invalidate the concerns of \secref{sec:CallgraphBuiltins}, because there
+might be function handles that point to builtin functions, and in those
+cases the same problem traces -- with call events that don't have a
+corresponding enter event -- can arise.
+
+The "- Builtins" column in \tableref{tab:InstrumentationBenchmarks} shows the
+performance of the instrumented code with this enhancement applied.
 
 \subsubsection{Redundant class check elimination}
 
