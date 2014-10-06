@@ -375,8 +375,105 @@ handle, or possibly a complex data structure with a mix of data and handles.
 Where we're able to determine that a variable is definitely an array containing
 only data, we can avoid instrumenting it.
 
-% TODO(isbadawi): Describe handle propagation analysis, measure effect on
-% relevant benchmarks
+The \mclab framework implements such an analysis, calling it handle propagation
+analysis. At each program point $p$, the analysis computes a map from
+identifiers to a set of abstract values; these values are described in
+\tableref{tab:HandleValues}.
+
+To help with the definition of the analysis rules, we define two helper
+functions operating on sets of abstract values. The first, $struct$, interprets
+its input as representing the individual elements of an array of a cell array
+$a$, and returns abstract values representing $a$ itself. The second, $sonly$,
+discards from its input any values that don't represent structured data. They
+are defined as follows.
+
+% TODO(isbadawi): Rewrite above paragraph.
+
+\begin{align*}
+struct(V) &= \begin{cases}
+  \lbrace DO \rbrace & \text{if } V = \lbrace DO \rbrace \\
+  \lbrace DHO \rbrace & \text{if } \forall v \in V . v = H \vee v = DHO \vee v = @... \\
+  \lbrace DWH \rbrace & \text{otherwise} \\
+\end{cases} \\
+sonly(V) &= \begin{cases}
+  \lbrace DO \rbrace & \text{if } DO \in V \\
+  \lbrace DHO \rbrace & \text{if } DHO \in V \\
+  \lbrace DWH \rbrace & \text{if } DWH \in V \\
+\end{cases} \\
+\end{align*}
+
+Given these, \tableref{tab:HandleRules} shows the rules the analysis uses to
+generate abstract values for each relevant \matlab language construct. The
+rules for the different kinds of expressions are largely straightforward. Of
+particular interest are the last four rules, pertaining to assignment
+statements. In each case, the set associated with the identifier being assigned
+to is killed and replaced with the gen set.
+
+\begin{table}
+{\footnotesize
+\begin{tabular}{l | l}
+  \code{UNDEF (U)} & Has not been defined at this point in the program \\
+  \code{DATAONLY (DO)} & Does not contain handles \\
+  \code{DATAHANDLEONLY (DHO)} & Structured data, such as a struct or a cell array,
+                          that only contains handles. \\
+  \code{DATAWITHHANDLES (DWH)} & Structured data that can contain handles and other
+                           data. This is the most general value. \\
+  \code{HANDLE (H)} & Is a handle, but no information is available as to what it's
+                  pointing to \\
+  \code{NAMED @name} & Is a handle to a named function we know \\
+  \code{ANON @(..)  ...} & Is a handle to an anonymous function we know
+\end{tabular}
+}
+\caption{Abstract values for the handle propagation analysis.
+  The \code{DO}, \code{DHO}, and \code{DWH} values are mutually exclusive.
+}
+\label{tab:HandleValues}
+\end{table}
+
+\begin{table}
+\begin{tabular}{l | l l}
+  Expression $E$ & Abstract values (i.e. $gen(E)$)  \\ \hline
+  \code{@name}    & $\lbrace$ \code{@name} $\rbrace$ \\ \hline
+  \code{@(..)...} & $\lbrace$ \code{@(..)...} $\rbrace$ \\ \hline
+
+  $id$ & $in(id)$ & if $kind(id) = VAR$ \\
+       & $\lbrace H, DWH \rbrace$ & if $kind(id) = FN$ \\
+       & $in(id)$ & \text{if } $U \not \in in(id)$ \\
+       & $\lbrace H, DWH \rbrace \cup in(id) \setminus U$ & otherwise \\ \hline
+
+  $id(\dots)$ & $\lbrace H, DWH \rbrace$ & if $kind(id) = FN$ \\
+            & $\displaystyle \bigcup_{v \in in(id)}$ of the following & otherwise \\
+            & $\lbrace H, DWH \rbrace $ & if $v = H | @...$ \\
+            & $\lbrace H, DWH \rbrace $ & if $v = U \wedge kind(id) \neq VAR$ \\
+            & $\lbrace v \rbrace$       & otherwise \\ \hline
+
+  $id\lbrace\dots\rbrace$ & $\lbrace DO \rbrace$ & if $DO \in in(id)$ \\
+  $id.\cdots$ & $\lbrace H \rbrace$ & if $DHO \in in(id)$ \\
+          & $\lbrace H, DWH \rbrace$ & if $DWH \in in(id)$ \\ \hline
+
+  $\lbrace E_1, \dots, E_n\rbrace$ & $struct \big( \bigcup_i E_i \big)$ & \\
+  $[ E_1, \dots, E_n ]$ & & \\ \hline
+
+  any other expression & $\lbrace DO \rbrace$ & \\ \hline
+  % TODO(isbadawi): Are these right?
+  $id = E$ & $gen(E)$ & \\ \hline
+  $id.\cdots = E$ & $sonly(in(id))) \cup struct(gen(E))$ \\ \hline
+  $id\lbrace\dots\rbrace$ & $struct(in(id)) \cup struct(gen(E))$ \\ \hline
+  $id(\dots) = E$ & $sonly(in(id)) \cup struct(gen(E))$ \\ \hline
+
+\end{tabular}
+\caption{Handle propagation analysis rules.}
+\label{tab:HandleRules}
+\end{table}
+
+For our purposes, if the target of an array access only has the \code{DO}
+abstract value associated with it, then we can safely abstain from
+instrumenting it. The "+ Handle Prop" column in
+\tableref{tab:InstrumentationBenchmarks} shows the performance of the
+instrumented code with this enhancement applied (as a slowdown relative to
+the uninstrumented code).
+
+% TODO(isbadawi): More comments after numbers
 
 \subsubsection{Redundant class check elimination}
 
