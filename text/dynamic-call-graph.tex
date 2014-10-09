@@ -308,21 +308,98 @@ A priori, we expect the instrumented code to run at least an order of magnitude
 or two slower than the original code, the main culprit being the wrapping of
 every single function call or variable access with a call to an auxiliary
 function. In order to get a sense of the magnitude of the overhead, we run some
-benchmarks with and without instrumentation. The results are shown in
-\tableref{tab:InstrumentationBenchmarks}.
+benchmarks with and without instrumentation.
 
-All the programs were executed on a machine with an Intel\textregistered \,
+\subsection{Benchmarks}
+
+We run our experiments on a set of 30 \matlab benchmarks. 23 of these are part
+of the \mclab project's standard benchmark suite, which was collected from
+various sources, including the FALCON and OTTER projects, Chalmers University
+of Technology, the \matlab Central File Exchange, and the ACM CALGO library.
+These benchmarks are mostly numerical algorithms, heavy on loops and array
+reads and writes, and not so heavy on function calls or function handles. Most
+\matlab code looks like this, so measuring and minimizing overhead on such code
+is important. However, it's also important to evaluate our approach on code
+where the tracing would reveal useful information. To that end, we also include
+seven additional benchmarks in our suite. Six of these are numerical solvers, a
+class of programs where it is common to operate on function handles. These are
+the same benchmarks used by Lameed and Hendren to evaluate their work on
+optimizing \code{feval} implementations \cite{OptimizingFeval}. The remaining
+benchmark exercises a library implementing many functional programming
+primitives, such as \code{map}, \code{filter} and \code{curry} in \matlab.
+While unlikely to be representative of typical \matlab code, it is apt to
+produce a much less trivial call graph than the others.
+
+These benchmarks are summarized in \tableref{tab:InstrumentationBenchmarks}. In
+addition to the name and description, we include some simple static metrics to
+help understand the following experimental results. Since instrumenting a
+function call or array access adds an overhead proportional to the number of
+times it is executed, we note, for each benchmark, how many calls or accesses
+are instrumented, and how many of these are inside loops. Note that
+this is computed is a relatively simple-minded way, and doesn't catch, for
+example, calls or accesses inside functions which are called inside loops.
+Nevertheless, this can be an interesting metric. We then show how each
+optimization described later in this section affects this metric (i.e. how many
+calls or accesses are we able to avoid instrumenting). For the "+ Checks" column,
+these numbers are for the good path, where the check succeeds.
+
+% TODO(isbadawi): Are these all necessary?
+% TODO(isbadawi): Maybe sort rows by most instrumented?
+\begin{table}
+  \begin{tabular}{| l | p{8.5cm} | l | l | l | l | l |}
+  \hline
+  Name & Description & Naive & + Prop & - Builtins & + Checks \\ \hline
+
+  adpt        & Adaptive quadrature via Simpson's rule & 31 (21) & 31 (21) & 17 (14)& 17 (14) \\ \hline
+  arsim       & Simulates an autoregressive model & 19 (9) & 12 (3) & 2 (2) & 1 (1) \\ \hline
+  bbai        & Babai estimation algorithm & 13 (8) & 12 (7) & 6 (4) & 1 (1) \\ \hline
+  bubble      & Bubble sort & 7 (4) & 7 (4) & 5 (4) & 1 (0) \\ \hline
+  capr        & Computes the capacitance of a transmission line via the finite difference and Gauss-Seidel methods & 37 (29) & 37 (29) & 30 (28) & 5 (3) \\ \hline
+  clos        & Calculates the transitive closure of a directed graph & 2 (1) & 2 (1) & 1 (1) & 1 (1) \\ \hline
+  create      & Simulated maximum likelihood statistical regression & 86 (79) & 78 (71) & 60 (60) & 56 (56) \\ \hline
+  crni        & Solves the heat equation via Crank-Nicholson & 25 (19) & 21 (15) & 13 (11) & 2 (2) \\ \hline
+  dich        & Solves Laplace's equation via Dirichlet & 25 (9) & 11 (3) & 1 (1) & 1 (1)  \\ \hline
+  diff        & Calculates the diffraction pattern of monochromatic light & 14 (10) & 14 (10) & 1 (1) & 1 (1) \\ \hline
+  fdtd        & Applies the finite-difference time domain technique & 39 (30) & 9 (0) & 1 (0) & 1 (0) \\ \hline
+  fft         & Computes the discrete fast Fourier transform on complex data & 17 (14) & 17 (14) & 13 (12) & 1 (0) \\ \hline
+  fiff        & Calculates the finite difference solution to the wave equation & 22 (21) & 18 (17) & 1 (1) & 1 (0) \\ \hline
+  lgdr        & Calculates derivatives of Legendre polynomials & 21 (15) & 12 (6) & 3 (3) & 3 (3) \\ \hline
+  mbrt        & Computes Mandelbrot sets & 11 (3) & 11 (3) & 2 (1) & 2 (1) \\ \hline
+  mcpi        & & 3 (2) & 3 (2) & 1 (0) & 1 (0) \\ \hline
+  nb1d        & Simulates the 1-dimensional n-body problem & 26 (12) & 25 (11) & 9 (4) & 5 (0) \\ \hline
+  nb3d        & Simulates the 3-dimensional n-body problem & 35 (20) & 23 (10) & 8 (5) & 6 (3) \\ \hline
+  numprime    & Sieve of Eratosthenes & 3 (2) & 3 (2) & 1 (0) & 6 (5) \\ \hline
+  optstop     & Solves the optimal stopping problem & 15 (14) & 9 (8) & 6 (5) & 6 (5) \\ \hline
+  quadrature  & Integrates a function via quadrature & 2 (1) & 2 (1) & 2 (1) & 2 (1)\\ \hline
+  scra        & Computes a reduced-rank approximation of a matrix & 48 (35) & 47 (34) & 32 (28) & 24 (20) \\ \hline
+  spqr        & Computes a semi-pivoted QR decomposition of a matrix & 48 (35) & 42 (34) & 28 (28) & 20 (20) \\ \hline
+  bisect      & Finds a root of a scalar function via bisection method & \\ \hline
+  newton      & Finds a root of a scalar function via Newton's method & \\ \hline
+  odeEuler    & Integrates a first order ODE via Euler's method & \\ \hline
+  odeMidpt    & Integrates a first order ODE via the midpoint method & \\ \hline
+  odeRK4      & Integrates a first order ODE via the Runge-Kutta method & \\ \hline
+  sim\_anl    & Minimizes a function via simulated annealing & \\ \hline
+  functional  & \\ \hline
+
+\end{tabular}
+\caption{Call graph instrumentation benchmarks.}
+\label{tab:InstrumentationBenchmarks}
+\end{table}
+
+\subsection{Results}
+
+The results are shown in \tableref{tab:InstrumentationResults}. All the
+programs were executed on a machine with an Intel\textregistered \,
 Core\texttrademark \, i7 CPU @ 2.4 GHz and 8 GB of memory, running OS X 10.9.4,
-using \matlab version R2014b.
-For each benchmark, we show the running times of the original code and the naive
-instrumented version thus far. The "+ Handle prop", "- Builtins", and "+ Runtime
-checks" columns are the running times with the optimizations described later in
-this section. All running times are in seconds.
+using \matlab version R2014b. For each benchmark, we show the running times of
+the original code and the naive instrumented version thus far. The "+ Prop" "-
+Builtins", and "+ Checks" columns are the running times with the optimizations
+described later in this section. All running times are in seconds.
 
 \begin{table}
 \begin{tabular}{| l | l | l | l | l | l |}
   \hline
-  Benchmark & Original & Naive & + Handle prop & - Builtins & + Runtime checks \\ \hline
+  Benchmark & Original & Naive & + Prop & - Builtins & + Checks \\ \hline
   adpt        & 0.105 & 9.867    & & & 2.294\\ \hline
   arsim       & 0.259 & 0.598    & & & 0.231\\ \hline
   bbai        & 0.209 & 0.226    & & & 0.205\\ \hline
@@ -349,7 +426,7 @@ this section. All running times are in seconds.
 \end{tabular}
 \caption{Running times of the instrumented code with different optimizations
 enabled.}
-\label{tab:InstrumentationBenchmarks}
+\label{tab:InstrumentationResults}
 \end{table}
 
 \subsection{Minimizing overhead}
@@ -466,7 +543,7 @@ to is killed and replaced with the gen set.
 For our purposes, if the target of an array access only has the \code{DO}
 abstract value associated with it, then we can safely abstain from
 instrumenting it. The "+ Handle Prop" column in
-\tableref{tab:InstrumentationBenchmarks} shows the performance of the
+\tableref{tab:InstrumentationResults} shows the performance of the
 instrumented code with this enhancement applied (as a slowdown relative to
 the uninstrumented code).
 
@@ -499,7 +576,7 @@ might be function handles that point to builtin functions, and in those
 cases the same problem traces -- with call events that don't have a
 corresponding enter event -- can arise.
 
-The "- Builtins" column in \tableref{tab:InstrumentationBenchmarks} shows the
+The "- Builtins" column in \tableref{tab:InstrumentationResults} shows the
 performance of the instrumented code with this enhancement applied.
 
 \subsubsection{Redundant class check elimination}
