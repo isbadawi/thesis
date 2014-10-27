@@ -66,7 +66,7 @@ dynamic features that complicate any form of static analysis. Among these are
 the evaluation of arbitrary strings as code via calls to the \code{eval} family
 of functions, and a function lookup mechanism that involves crawling the
 filesystem at runtime -- starting from a current directory that can be changed
-at runtime -- in search of applicable call targets. More attention is given to
+at runtime -- in search of applicable call targets. More attention is paid to
 these in \chapref{chap:DynamicFeatureElimination}.
 
 \section{Call graph tracing instrumentation}
@@ -215,9 +215,6 @@ end-to-end example.
 
 \end{itemize}
 
-% TODO(isbadawi): Describe examples more fully.
-% TODO(isbadawi): Think more about entry points. Maybe look at command history?
-
 \begin{figure}[htbp]
 \begin{minipage}{\linewidth}
   \lstinputlisting{code/callgraph-example/before/for_each_file.m}
@@ -263,7 +260,7 @@ course of a profiling run, control flow is likely to be passed to a builtin or
 otherwise uninstrumented function, which could then call back into the project
 code, for instance via a passed-in function handle, a method call on a
 passed-in object, or the use of \matlab's reflective features, possibly using
-passed-in arguments to compute names of functions or to call. Without taking
+passed-in arguments to compute names of functions to call. Without taking
 care to handle this correctly, then in the presence of such code, our approach
 will be unsound, even with respect to the recorded execution.
 
@@ -300,8 +297,6 @@ of the problematic edges.
 \label{Fig:LogThenRunBuiltin}
 \end{figure}
 
-% TODO(isbadawi): See "Application-only Call Graph Construction", ECOOP 2012?
-
 \section{Instrumentation performance overhead}
 
 A priori, we expect the instrumented code to run at least an order of magnitude
@@ -312,7 +307,7 @@ benchmarks with and without instrumentation.
 
 \subsection{Benchmarks}
 
-We run our experiments on a set of 30 \matlab benchmarks. 23 of these are part
+We run our experiments on a set of 29 \matlab benchmarks. 23 of these are part
 of the \mclab project's standard benchmark suite, which was collected from
 various sources, including the FALCON and OTTER projects, Chalmers University
 of Technology, the \matlab Central File Exchange, and the ACM CALGO library.
@@ -324,66 +319,99 @@ where the tracing would reveal useful information. To that end, we also include
 seven additional benchmarks in our suite. Six of these are numerical solvers, a
 class of programs where it is common to operate on function handles. These are
 the same benchmarks used by Lameed and Hendren to evaluate their work on
-optimizing \code{feval} implementations \cite{OptimizingFeval}. The remaining
-benchmark exercises a library implementing many functional programming
-primitives, such as \code{map}, \code{filter} and \code{curry} in \matlab.
-While unlikely to be representative of typical \matlab code, it is apt to
-produce a much less trivial call graph than the others.
+optimizing \code{feval} implementations \cite{OptimizingFeval}.
 
-These benchmarks are summarized in \tableref{tab:InstrumentationBenchmarks}. In
-addition to the name and description, we include some simple static metrics to
-help understand the following experimental results. Since instrumenting a
-function call or array access adds an overhead proportional to the number of
-times it is executed, we note, for each benchmark, how many calls or accesses
-are instrumented, and how many of these are inside loops. Note that
-this is computed is a relatively simple-minded way, and doesn't catch, for
-example, calls or accesses inside functions which are called inside loops.
-Nevertheless, this can be an interesting metric. We then show how each
-optimization described later in this section affects this metric (i.e. how many
-calls or accesses are we able to avoid instrumenting). For the "+ Checks" column,
-these numbers are for the good path, where the check succeeds.
+These benchmarks are described briefly in
+\tableref{tab:InstrumentationBenchmarks}. In
+\tableref{tab:InstrumentationBenchmarksInstrumentable}, we include some simple
+static metrics to help understand the following experimental results. Since
+instrumenting a function call or array access adds an overhead proportional to
+the number of times it is executed, we note, for each benchmark, how many calls
+or accesses are instrumented (this is the first number in each column), and how
+many of these are inside loops (this is the number in parentheses in each
+column). Note that this is computed is a relatively simple-minded way, and
+doesn't catch, for example, calls or accesses inside functions which are called
+inside loops. Nevertheless, this can be an interesting metric. We then show how
+each optimization described later in this section affects this metric (in other
+words, how many expressions we are able to avoid instrumenting).
 
-% TODO(isbadawi): Are these all necessary?
-% TODO(isbadawi): Maybe sort rows by most instrumented?
 \begin{table}
-  \begin{tabular}{| l | p{8.5cm} | l | l | l | l | l |}
+  \begin{tabular}{| l | p{10cm} |}
   \hline
-  Name & Description & Naive & + Prop & - Builtins & + Checks \\ \hline
-
-  adpt        & Adaptive quadrature via Simpson's rule & 31 (21) & 31 (21) & 17 (14)& 17 (14) \\ \hline
-  arsim       & Simulates an autoregressive model & 19 (9) & 12 (3) & 2 (2) & 1 (1) \\ \hline
-  bbai        & Babai estimation algorithm & 13 (8) & 12 (7) & 6 (4) & 1 (1) \\ \hline
-  bubble      & Bubble sort & 7 (4) & 7 (4) & 5 (4) & 1 (0) \\ \hline
-  capr        & Computes the capacitance of a transmission line via the finite difference and Gauss-Seidel methods & 37 (29) & 37 (29) & 30 (28) & 5 (3) \\ \hline
-  clos        & Calculates the transitive closure of a directed graph & 2 (1) & 2 (1) & 1 (1) & 1 (1) \\ \hline
-  create      & Simulated maximum likelihood statistical regression & 86 (79) & 78 (71) & 60 (60) & 56 (56) \\ \hline
-  crni        & Solves the heat equation via Crank-Nicholson & 25 (19) & 21 (15) & 13 (11) & 2 (2) \\ \hline
-  dich        & Solves Laplace's equation via Dirichlet & 25 (9) & 11 (3) & 1 (1) & 1 (1)  \\ \hline
-  diff        & Calculates the diffraction pattern of monochromatic light & 14 (10) & 14 (10) & 1 (1) & 1 (1) \\ \hline
-  fdtd        & Applies the finite-difference time domain technique & 39 (30) & 9 (0) & 1 (0) & 1 (0) \\ \hline
-  fft         & Computes the discrete fast Fourier transform on complex data & 17 (14) & 17 (14) & 13 (12) & 1 (0) \\ \hline
-  fiff        & Calculates the finite difference solution to the wave equation & 22 (21) & 18 (17) & 1 (1) & 1 (0) \\ \hline
-  lgdr        & Calculates derivatives of Legendre polynomials & 21 (15) & 12 (6) & 3 (3) & 3 (3) \\ \hline
-  mbrt        & Computes Mandelbrot sets & 11 (3) & 11 (3) & 2 (1) & 2 (1) \\ \hline
-  mcpi        & & 3 (2) & 3 (2) & 1 (0) & 1 (0) \\ \hline
-  nb1d        & Simulates the 1-dimensional n-body problem & 26 (12) & 25 (11) & 9 (4) & 5 (0) \\ \hline
-  nb3d        & Simulates the 3-dimensional n-body problem & 35 (20) & 23 (10) & 8 (5) & 6 (3) \\ \hline
-  numprime    & Sieve of Eratosthenes & 3 (2) & 3 (2) & 1 (0) & 6 (5) \\ \hline
-  optstop     & Solves the optimal stopping problem & 15 (14) & 9 (8) & 6 (5) & 6 (5) \\ \hline
-  quadrature  & Integrates a function via quadrature & 2 (1) & 2 (1) & 2 (1) & 2 (1)\\ \hline
-  scra        & Computes a reduced-rank approximation of a matrix & 48 (35) & 47 (34) & 32 (28) & 24 (20) \\ \hline
-  spqr        & Computes a semi-pivoted QR decomposition of a matrix & 48 (35) & 42 (34) & 28 (28) & 20 (20) \\ \hline
-  bisect      & Finds a root of a scalar function via bisection method & \\ \hline
-  newton      & Finds a root of a scalar function via Newton's method & \\ \hline
-  odeEuler    & Integrates a first order ODE via Euler's method & \\ \hline
-  odeMidpt    & Integrates a first order ODE via the midpoint method & \\ \hline
-  odeRK4      & Integrates a first order ODE via the Runge-Kutta method & \\ \hline
-  sim\_anl    & Minimizes a function via simulated annealing & \\ \hline
-  functional  & \\ \hline
-
+  Name & Description \\ \hline
+  adpt        & Adaptive quadrature via Simpson's rule \\ \hline
+  arsim       & Simulates autoregressive model \\ \hline
+  bbai        & Babai estimation algorithm \\ \hline
+  bubble      & Bubble sort \\ \hline
+  capr        & Computes capacitance of a transmission line via finite difference and Gauss-Seidel methods \\ \hline
+  clos        & Calculates transitive closure of a directed graph \\ \hline
+  create      & Simulated maximum likelihood statistical regression \\ \hline
+  crni        & Solves heat equation via Crank-Nicholson \\ \hline
+  dich        & Solves Laplace's equation via Dirichlet \\ \hline
+  diff        & Calculates diffraction pattern of monochromatic light \\ \hline
+  fdtd        & Applies finite-difference time domain technique \\ \hline
+  fft         & Computes discrete fast Fourier transform on complex data \\ \hline
+  fiff        & Calculates finite difference solution to wave equation \\ \hline
+  lgdr        & Calculates derivatives of Legendre polynomials \\ \hline
+  mbrt        & Computes Mandelbrot sets \\ \hline
+  mcpi        & Computes $\pi$ via Monte Carlo method \\ \hline
+  nb1d        & Simulates 1-dimensional n-body problem \\ \hline
+  nb3d        & Simulates 3-dimensional n-body problem \\ \hline
+  numprime    & Sieve of Eratosthenes \\ \hline
+  optstop     & Solves optimal stopping problem \\ \hline
+  quadrature  & Integrates function via quadrature \\ \hline
+  scra        & Computes reduced-rank approximation of matrix \\ \hline
+  spqr        & Computes semi-pivoted QR decomposition of matrix \\ \hline
+  bisect      & Finds root of scalar function via bisection method \\ \hline
+  gaussQuad   & Composite Gauss-Legendre quadrature \\ \hline
+  newton      & Finds root of scalar function via Newton's method \\ \hline
+  odeEuler    & Integrates first order ODE via Euler's method \\\hline
+  odeMidpt    & Integrates first order ODE via midpoint method \\ \hline
+  odeRK4      & Integrates first order ODE via Runge-Kutta \\ \hline
+  sim\_anl    & Minimizes function via simulated annealing \\ \hline
 \end{tabular}
 \caption{Call graph instrumentation benchmarks.}
 \label{tab:InstrumentationBenchmarks}
+\end{table}
+
+\begin{table}
+\centering
+  \begin{tabular}{| l | l | l | l | l | l |}
+  \hline
+  Name & Naive & + Prop & - Builtins & + Checks \\ \hline
+  adpt        & 31 (21) & 31 (21) & 17 (14)& 17 (14) \\ \hline
+  arsim       & 19 (9) & 12 (3) & 2 (2) & 1 (1) \\ \hline
+  bbai        & 13 (8) & 12 (7) & 6 (4) & 1 (1) \\ \hline
+  bubble      & 7 (4) & 7 (4) & 5 (4) & 1 (0) \\ \hline
+  capr        & 37 (29) & 37 (29) & 30 (28) & 5 (3) \\ \hline
+  clos        & 2 (1) & 2 (1) & 1 (1) & 1 (1) \\ \hline
+  create      & 86 (79) & 78 (71) & 60 (60) & 56 (56) \\ \hline
+  crni        & 25 (19) & 21 (15) & 13 (11) & 2 (2) \\ \hline
+  dich        & 25 (9) & 11 (3) & 1 (1) & 1 (1)  \\ \hline
+  diff        & 14 (10) & 14 (10) & 1 (1) & 1 (1) \\ \hline
+  fdtd        & 39 (30) & 9 (0) & 1 (0) & 1 (0) \\ \hline
+  fft         & 17 (14) & 17 (14) & 13 (12) & 1 (0) \\ \hline
+  fiff        & 22 (21) & 18 (17) & 1 (1) & 1 (0) \\ \hline
+  lgdr        & 21 (15) & 12 (6) & 3 (3) & 3 (3) \\ \hline
+  mbrt        & 11 (3) & 11 (3) & 2 (1) & 2 (1) \\ \hline
+  mcpi        & 3 (2) & 3 (2) & 1 (0) & 1 (0) \\ \hline
+  nb1d        & 26 (12) & 25 (11) & 9 (4) & 5 (0) \\ \hline
+  nb3d        & 35 (20) & 23 (10) & 8 (5) & 6 (3) \\ \hline
+  numprime    & 3 (2) & 3 (2) & 1 (0) & 6 (5) \\ \hline
+  optstop     & 15 (14) & 9 (8) & 6 (5) & 6 (5) \\ \hline
+  quadrature  & 2 (1) & 2 (1) & 2 (1) & 2 (1)\\ \hline
+  scra        & 48 (35) & 47 (34) & 32 (28) & 24 (20) \\ \hline
+  spqr        & 48 (35) & 42 (34) & 28 (28) & 20 (20) \\ \hline
+  bisect      & 31 (7) & 31 (7) & 6 (2) & 4 (2) \\ \hline
+  gaussQuad   & 53 (4) & 18 (2) & 4 (1) & 4 (1) \\ \hline
+  newton      & 16 (5) & 16 (5) & 3 (2) & 3(2) \\ \hline
+  odeEuler    & 7 (4) & 4 (1) & 2 (1) & 2(1) \\\hline
+  odeMidpt    & 10 (7) & 5 (2) & 3 (2) & 3 (2) \\ \hline
+  odeRK4      & 7 (4) & 5 (4) & 5 (4) & 5 (4) \\ \hline
+  sim\_anl    & 19 (8) & 19 (8) & 11 (2) & 11 (2) \\ \hline
+\end{tabular}
+\caption{Instrumentable expressions in each benchmark.}
+\label{tab:InstrumentationBenchmarksInstrumentable}
 \end{table}
 
 \subsection{Results}
@@ -392,37 +420,53 @@ The results are shown in \tableref{tab:InstrumentationResults}. All the
 programs were executed on a machine with an Intel\textregistered \,
 Core\texttrademark \, i7 CPU @ 2.4 GHz and 8 GB of memory, running OS X 10.9.4,
 using \matlab version R2014b. For each benchmark, we show the running times of
-the original code and the naive instrumented version thus far. The "+ Prop" "-
-Builtins", and "+ Checks" columns are the running times with the optimizations
-described later in this section. All running times are in seconds.
+the original code in seconds, and the slowdown of each instrumented version
+relative to the original code. The last row shows the geometric mean of each
+column. The specific meanings of the "+ Prop", "- Builtins", "+ Checks", and
+"Better runtime" columns are described later in this section.
+
+For the naive instrumentation described thus far, we see that the slowdown can
+be extreme for some benchmarks, with six of the benchmarks undergoing a three
+order of magnitude slowdown. All of these in the numerical category, and can be
+optimized. The functional benchmarks all see a slowdown between one and two
+orders of magnitude. While we're able to optimize them slightly, they tend to
+stay within the same order of magnitude.
 
 \begin{table}
-\begin{tabular}{| l | l | l | l | l | l |}
+\begin{tabular}{| l | l | l | l | l | l | l |}
   \hline
-  Benchmark & Original & Naive & + Prop & - Builtins & + Checks \\ \hline
-  adpt        & 0.105 & 9.867    & & & 2.294\\ \hline
-  arsim       & 0.259 & 0.598    & & & 0.231\\ \hline
-  bbai        & 0.209 & 0.226    & & & 0.205\\ \hline
-  bubble      & 0.006 & 0.010    & & & 0.010\\ \hline
-  capr        & 1.068 & 1641.699 & & & 3.745\\ \hline
-  clos        & 0.266 & 0.245    & & & 0.249\\ \hline
-  create      & 0.033 & 0.070    & & & 0.034\\ \hline
-  crni        & 1.375 & 1605.929 & & & 1.661\\ \hline
-  dich        & 0.388 & 2116.571 & & & 0.394\\ \hline
-  diff        & 0.140 & 243.419  & & & 0.150\\ \hline
-  fdtd        & 0.117 & 0.327    & & & 0.127\\ \hline
-  fft         & 0.011 & 2.138    & & & 0.019\\ \hline
-  fiff        & 0.504 & 1106.703 & & & 0.506\\ \hline
-  lgdr        & 0.016 & 0.024    & & & 0.019\\ \hline
-  mbrt        & 0.221 & 365.613  & & & 0.993\\ \hline
-  mcpi        & 0.007 & 0.013    & & & 0.011\\ \hline
-  nb1d        & 1.058 & 7.209    & & & 1.076\\ \hline
-  nb3d        & 0.280 & 0.616    & & & 0.311\\ \hline
-  numprime    & 0.005 & 0.008    & & & 0.010\\ \hline
-  optstop     & 0.014 & 0.026    & & & 0.027\\ \hline
-  quadrature  & 0.003 & 0.009    & & & 0.011\\ \hline
-  scra        & 0.227 & 0.262    & & & 0.253\\ \hline
-  spqr        & 0.214 & 0.250    & & & 0.235\\ \hline
+  Benchmark & Original & Naive & + Prop & - Builtins & + Checks & Better runtime \\ \hline
+  adpt        & 0.946 & 95.1 & 97.9 & 25.4 & 23.9 & 22.3  \\ \hline
+  arsim       & 0.379 & 2.60 & 1.91 & 1.01 & 1.03 & 1.02  \\ \hline
+  bbai        & 0.211 & 1.07 & 1.07 & 1.04 & 1.03 & 1.01  \\ \hline
+  bubble      & 0.004 & 2.89 & 2.94 & 2.53 & 2.90 & 3.24  \\ \hline
+  capr        & 10.6  & 1550 & 1530 & 1490 & 4.02 & 2.87  \\ \hline
+  clos        & 0.521 & 1.03 & 1.01 & 1.06 & 1.03 & 1.03  \\ \hline
+  create      & 0.033 & 2.31 & 2.88 & 1.52 & 1.75 & 1.54  \\ \hline
+  crni        & 14.1  & 1120 & 751  & 743  & 1.17 & 1.10  \\ \hline
+  dich        & 3.78  & 5340 & 2950 & 1.02 & 1.04 & 1.03  \\ \hline
+  diff        & 1.24  & 1690 & 1660 & 1.02 & 1.05 & 1.09  \\ \hline
+  fdtd        & 1.08  & 2.82 & 1.12 & 1.06 & 1.17 & 1.12  \\ \hline
+  fft         & 1.95  & 217  & 216  & 213  & 2.05 & 2.28  \\ \hline
+  fiff        & 4.83  & 2190 & 18.1 & 0.942& 0.922& 0.998 \\ \hline
+  lgdr        & 0.017 & 2.65 & 2.37 & 1.70 & 2.11 & 2.46  \\ \hline
+  mbrt        & 2.08  & 1490 & 1500 & 4.17 & 4.28 & 3.30  \\ \hline
+  mcpi        & 0.008 & 2.57 & 2.57 & 2.10 & 2.30 & 2.71  \\ \hline
+  nb1d        & 8.43  & 6.59 & 6.63 & 2.14 & 0.984& 0.96  \\ \hline
+  nb3d        & 0.806 & 2.25 & 1.88 & 1.23 & 1.14 & 1.24  \\ \hline
+  numprime    & 0.007 & 2.18 & 2.11 & 2.62 & 2.72 & 3.03  \\ \hline
+  optstop     & 0.052 & 2.62 & 2.65 & 1.99 & 2.19 & 0.008 \\ \hline
+  quadrature  & 0.005 & 3.34 & 3.29 & 3.29 & 3.84 & 3.67  \\ \hline
+  scra        & 0.232 & 1.25 & 1.23 & 1.10 & 1.11 & 1.26  \\ \hline
+  spqr        & 0.221 & 1.15 & 1.14 & 1.08 & 1.10 & 1.25  \\ \hline
+  bisect      & 0.741 & 62.8 & 62.5 & 23.9 & 24.1 & 17.2  \\ \hline
+  gaussQuad   & 1.73  & 20.1 & 18.9 & 10.9 & 10.8 & 11.8  \\ \hline
+  newton      & 1.16  & 39.2 & 39.7 & 20.7 & 20.3 & 16.2  \\ \hline
+  odeEuler    & 0.498 & 908  & 768  & 783  & 762  & 523   \\ \hline
+  odeMidpt    & 0.553 & 754  & 655  & 657  & 650  & 471   \\ \hline
+  odeRK4      & 0.614 & 872  & 775  & 771  & 784  & 481   \\ \hline
+  sim\_anl    & 0.652 & 62.9 & 62.1 & 23.9 & 24.6 & 19.4  \\ \hline
+  Geometric mean & 0.399 & 30.3 & 23.5 & 7.96 & 4.53 & 3.54 \\ \hline
 \end{tabular}
 \caption{Running times of the instrumented code with different optimizations
 enabled.}
@@ -447,107 +491,158 @@ the flow of function handles through a single function. For each use of a
 variable, we can estimate whether the variable holds only data, or a function
 handle, or possibly a complex data structure with a mix of data and handles.
 Where we're able to determine that a variable is definitely an array containing
-only data, we can avoid instrumenting it.
+only data, we can avoid instrumenting it. Some prior work had been done in this
+direction inside the \mclab framework in the form of an intraprocedural
+\emph{handle propagation analysis} -- work which we formalized and whose
+implementation we completed.
 
-The \mclab framework implements such an analysis, calling it handle propagation
-analysis. At each program point $p$, the analysis computes a map from
-identifiers to a set of abstract values; these values are described in
-\tableref{tab:HandleValues}.
+The handle propagation analysis aims to compute, at each program point, which
+variable possibly contain function handles. It's common to characterize
+\matlab as a language where everything is a matrix -- even a scalar value is
+actually a 1x1 matrix. Function handles, however, are not matrices. Broadly,
+we distinguish between handles and structured data such as arrays, structs
+or cell arrays. Then among these two categories we make some further
+distinctions. In particular, the analysis deals with abstract values defined
+as follows.
 
-To help with the definition of the analysis rules, we define two helper
-functions operating on sets of abstract values. The first, $struct$, interprets
-its input as representing the individual elements of an array of a cell array
-$a$, and returns abstract values representing $a$ itself. The second, $sonly$,
-discards from its input any values that don't represent structured data. They
-are defined as follows.
+\begin{itemize}
+  \item A variable could contain a function handle created via a function
+    handle expression \code{@f}, which simply creates a handle to named
+    function \code{f}. If so, we associate with the variable the abstract value
+    $NAMED(f)$, keeping track of the name it points to.
+  \item A variable could contain a function handle created via an anonymous
+    function \code{@(x) expr(x)}. If so, we associate with the variable the
+    abstract value $ANON(n)$, where $n$ is a reference to the
+    anonymous function node in the AST.
+  \item A variable could contain a function handle we don't have further
+    information about. Typically this would happen if it was assigned the
+    result of a call to a builtin function known to return handles. In that
+    case we associate with the variable the abstract value $HANDLE$,
+    abbreviated as $H$.
+  \item A variable could contain structured data (for example a cell array),
+    every element of which is a function handle. If so, we associate with it
+    the abstract value $DHO$ (data, handle only).
+  \item A variable could contain structured data where the elements are known
+    to definitely not be handles. If so, we associate with it the abstract
+    value $DO$ (data only).
+  \item A variable could contain structured data which is a mix of handles
+    and data, or where we don't know anything about the content. If so, we
+    associate with the variable the abstract value $DWH$ (data with handles).
+\end{itemize}
 
-% TODO(isbadawi): Rewrite above paragraph.
+In addition to these, we have $\bot$ and $\top$ values with their
+usual meaning. The analysis' merge operation is the join $\vee$ of the partial
+order illustrated in \figref{fig:HandleLattice}.
+
+\begin{figure}
+\centering
+\begin{tikzpicture}
+  \node (bot) at (0, 0) {$\bot$};
+  \node (anon) at (-3, 1) {$ANON$};
+  \node (named) at (-1, 1) {$NAMED$};
+  \node (h) at (-2, 2) {$H$};
+  \node (do) at (1, 1) {$DO$};
+  \node (dho) at (3, 1) {$DHO$};
+  \node (dwh) at (2, 2) {$DWH$};
+  \node (top) at (0, 3) {$\top$};
+  \draw [-] (bot) to (anon);
+  \draw [-] (bot) to (named);
+  \draw [-] (anon) to (h);
+  \draw [-] (named) to (h);
+  \draw [-] (bot) to (do);
+  \draw [-] (bot) to (dho);
+  \draw [-] (do) to (dwh);
+  \draw [-] (dho) to (dwh);
+  \draw [-] (h) to (top);
+  \draw [-] (dwh) to (top);
+\end{tikzpicture}
+\caption{Handle propagation analysis abstract values.}
+\label{fig:HandleLattice}
+\end{figure}
+
+The handle propagation analysis is an intraprocedural dataflow analysis. At
+each program point, it associates with each variable name a single abstract
+value.
+
+To help with the definition of the analysis rules, we define a helper function
+$struct$ operating on abstract values. In particular, it takes in a set of
+abstract values and, interpreting them as the indvidual elements of an array or
+cell array $a$, returns an abstract value representing $a$ itself. It is
+defined as follows.
 
 \begin{align*}
 struct(V) &= \begin{cases}
-  \lbrace DO \rbrace & \text{if } V = \lbrace DO \rbrace \\
-  \lbrace DHO \rbrace & \text{if } \forall v \in V . v = H \vee v = DHO \vee v = @... \\
-  \lbrace DWH \rbrace & \text{otherwise} \\
-\end{cases} \\
-sonly(V) &= \begin{cases}
-  \lbrace DO \rbrace & \text{if } DO \in V \\
-  \lbrace DHO \rbrace & \text{if } DHO \in V \\
-  \lbrace DWH \rbrace & \text{if } DWH \in V \\
+  DO & \text{if } V = \lbrace DO \rbrace \\
+  DHO & \text{if } V \subseteq \lbrace H, NAMED, ANON, DHO \rbrace \\
+  DWH & \text{otherwise} \\
 \end{cases} \\
 \end{align*}
 
-Given these, \tableref{tab:HandleRules} shows the rules the analysis uses to
-generate abstract values for each relevant \matlab language construct. The
-rules for the different kinds of expressions are largely straightforward. Of
-particular interest are the last four rules, pertaining to assignment
-statements. In each case, the set associated with the identifier being assigned
-to is killed and replaced with the gen set.
+The analysis operates on a regular \matlab AST, using \mcsaf, the \mclab
+toolkit's static analysis framework. When we encounter an assignment statement
+$S$, we first examine the top-level expression $E$ on the right hand side, and
+compute from it an abstract value $gen(E)$. The rules for this are shown in
+\tableref{tab:HandleExprRules}; we write $in(id)$ to refer to the abstract
+value associated with the identifier $id$ in the in set of $S$, and $kind(id)$
+to refer to the kind analysis result for that identifier (either FN or VAR,
+meaning the variable refers to a function or not, respectively). While the
+analysis is intraprocedural over user-defined functions, an attempt is made
+to avoid imprecision caused by calls to builtin functions in the form of a
+table, mapping, for a few hundred builtin functions, their name to an abstract
+value representing their return value. We write $info(id)$ to refer to the
+entry associated with $id$ in this table if there is one.
 
-\begin{table}
-{\footnotesize
-\begin{tabular}{l | l}
-  \code{UNDEF (U)} & Has not been defined at this point in the program \\
-  \code{DATAONLY (DO)} & Does not contain handles \\
-  \code{DATAHANDLEONLY (DHO)} & Structured data, such as a struct or a cell array,
-                          that only contains handles. \\
-  \code{DATAWITHHANDLES (DWH)} & Structured data that can contain handles and other
-                           data. This is the most general value. \\
-  \code{HANDLE (H)} & Is a handle, but no information is available as to what it's
-                  pointing to \\
-  \code{NAMED @name} & Is a handle to a named function we know \\
-  \code{ANON @(..)  ...} & Is a handle to an anonymous function we know
-\end{tabular}
-}
-\caption{Abstract values for the handle propagation analysis.
-  The \code{DO}, \code{DHO}, and \code{DWH} values are mutually exclusive.
-}
-\label{tab:HandleValues}
-\end{table}
+\tableref{tab:HandleStmtRules} shows how $gen(E)$ is used to compute the new
+abstract value for the variable being assigned to, depending on the kind of
+assignment (whether the variable is assigned to directly, or one of its
+elements or fields is being assigned to).
 
 \begin{table}
 \begin{tabular}{l | l l}
   Expression $E$ & Abstract values (i.e. $gen(E)$)  \\ \hline
-  \code{@name}    & $\lbrace$ \code{@name} $\rbrace$ \\ \hline
-  \code{@(..)...} & $\lbrace$ \code{@(..)...} $\rbrace$ \\ \hline
+  \code{@name}    & $NAMED(name)$ \\ \hline
+  \code{@(..)...} & $ANON(@(..)...)$ \\ \hline
 
   $id$ & $in(id)$ & if $kind(id) = VAR$ \\
-       & $\lbrace H, DWH \rbrace$ & if $kind(id) = FN$ \\
-       & $in(id)$ & \text{if } $U \not \in in(id)$ \\
-       & $\lbrace H, DWH \rbrace \cup in(id) \setminus U$ & otherwise \\ \hline
+       & $info(id)$ & if $kind(id) = FN \wedge id \in info$ \\
+       & $\top$ & if $kind(id) = FN \wedge id \not \in info$ \\ \hline
 
-  $id(\dots)$ & $\lbrace H, DWH \rbrace$ & if $kind(id) = FN$ \\
-            & $\displaystyle \bigcup_{v \in in(id)}$ of the following & otherwise \\
-            & $\lbrace H, DWH \rbrace $ & if $v = H | @...$ \\
-            & $\lbrace H, DWH \rbrace $ & if $v = U \wedge kind(id) \neq VAR$ \\
-            & $\lbrace v \rbrace$       & otherwise \\ \hline
+  $id(\dots)$ & $info(id)$ & if $kind(id) = FN \wedge id \in info$ \\
+              & $\top$ & if $kind(id) = FN \wedge id \not \in info$ \\
+              & $info(f)$ & if $in(id) = NAMED @f \wedge f \in info$ \\
+              & $\top$ & if $in(id) \in \lbrace H, ANON, NAMED \rbrace $ \\
+              & $in(id)$ & otherwise \\ \hline
 
-  $id\lbrace\dots\rbrace$ & $\lbrace DO \rbrace$ & if $DO \in in(id)$ \\
-  $id.\cdots$ & $\lbrace H \rbrace$ & if $DHO \in in(id)$ \\
-          & $\lbrace H, DWH \rbrace$ & if $DWH \in in(id)$ \\ \hline
+  $id\lbrace\dots\rbrace$ & $ DO $ & if $in(id) = DO$ \\
+  $id.\cdots$ & $ H $ & if $in(id) = DHO$ \\
+              & $\top$ & $in(id) = DWH$ \\ \hline
 
-  $\lbrace E_1, \dots, E_n\rbrace$ & $struct \big( \bigcup_i E_i \big)$ & \\
+  $\lbrace E_1, \dots, E_n \rbrace$ & $struct (\big\lbrace gen(E_1), \dots, gen(E_n) \big\rbrace)$ & \\
   $[ E_1, \dots, E_n ]$ & & \\ \hline
-
-  any other expression & $\lbrace DO \rbrace$ & \\ \hline
-  % TODO(isbadawi): Are these right?
-  $id = E$ & $gen(E)$ & \\ \hline
-  $id.\cdots = E$ & $sonly(in(id))) \cup struct(gen(E))$ \\ \hline
-  $id\lbrace\dots\rbrace$ & $struct(in(id)) \cup struct(gen(E))$ \\ \hline
-  $id(\dots) = E$ & $sonly(in(id)) \cup struct(gen(E))$ \\ \hline
-
+  any other expression & $DO$ & \\ \hline
 \end{tabular}
-\caption{Handle propagation analysis rules.}
-\label{tab:HandleRules}
+\caption{Handle propagation analysis rules for expressions.}
+\label{tab:HandleExprRules}
 \end{table}
 
-For our purposes, if the target of an array access only has the \code{DO}
-abstract value associated with it, then we can safely abstain from
-instrumenting it. The "+ Handle Prop" column in
-\tableref{tab:InstrumentationResults} shows the performance of the
-instrumented code with this enhancement applied (as a slowdown relative to
-the uninstrumented code).
+\begin{table}
+\begin{tabular}{l | l l}
+  Assignment & $out(id)$ & \\ \hline
+  $id = E$ & $gen(E)$ & \\ \hline
+  $id.\cdots = E$ & $in(id) \vee struct(\lbrace gen(E) \rbrace)$ & if $in(id) \in \lbrace DWH, DHO, DO \rbrace$ \\
+  $id\lbrace\dots\rbrace = E$ & $DWH$ & otherwise \\
+  $id(\dots) = E$ & & \\ \hline
+\end{tabular}
+\caption{Handle propagation analysis rules for assignments.}
+\label{tab:HandleStmtRules}
+\end{table}
 
-% TODO(isbadawi): More comments after numbers
+For our purposes, if the target of a variable access has the \code{DO} abstract
+value associated with it, then it's just plain array access, and we can safely
+abstain from instrumenting it. The "+ Prop" column in
+\tableref{tab:InstrumentationResults} shows the performance of the instrumented
+code with this enhancement applied (as a slowdown relative to the
+uninstrumented code).
 
 \subsubsection{Avoiding builtin call instrumentation}
 
@@ -570,6 +665,20 @@ operation, not really static analysis. This assumes we have access to all the
 code the user is apt to run, which is not an unreasonable assumption, given
 that the user is the one using the static analysis.
 
+We make a special exception for the builtin function \code{feval}, which is
+often used to invoke function handles instead of the regular function call
+syntax. There are two reasons for its prevalence. For one thing, in addition to
+accepting function handles to invoke, \code{feval} also accepts names of
+functions as strings, and it has become idiomatic in \matlab for library code
+to offer similar interfaces -- accepting either handles or strings and
+forwarding them to \code{feval} -- when a user-specified function is needed.
+\code{feval} is also prevalent for historical reasons. Function handles were
+added to the language with the release of \matlab 6 in 2000, but initially
+could only be invoked via \code{feval}. Support for invoking function handles
+with the regular function call syntax was not added until the release of
+\matlab 7 in 2004. Given all this, it's reasonable to treat \code{feval} the
+same way we do function calls.
+
 Note that the decision not to instrument direct calls to builtins doesn't
 invalidate the concerns of \secref{sec:CallgraphBuiltins}, because there
 might be function handles that point to builtin functions, and in those
@@ -579,7 +688,7 @@ corresponding enter event -- can arise.
 The "- Builtins" column in \tableref{tab:InstrumentationResults} shows the
 performance of the instrumented code with this enhancement applied.
 
-\subsubsection{Redundant class check elimination}
+\subsubsection{Checking type of function arguments at runtime}
 
 Our instrumentation speculatively wraps each variable access in a function call
 in case the variable is a function handle. A runtime check to determine whether
@@ -604,92 +713,56 @@ of three-address form.
 
 The handle propagation analysis is precise enough in practice if we restrict
 ourselves to a single function -- a lot of the imprecision occurs when arrays
-are passed around as function parameters. As a simple middle ground, we insert
-a single runtime check at the start of each function, checking whether any of
-the arguments to the function is a function handle. In the then branch, we
-insert the original instrumented version of the function. In the else branch,
-we insert another copy of the function where we avoid instrumenting any uses of
-the function parameters. A still more sophisticated approach would be to run
-the handle propagation analysis once for each version with different initial
-information.
+are passed around as function parameters. As a simple middle groud, we create
+two instrumented versions of each function. In the first version, we seed the
+handle propagation analysis with the conservative assumption that any of the
+function parameters might be a function handle (this is the same assumption
+we've been using thus far). In the second, we seed it with the assumption that
+all of the function parameters are definitely just plain data arrays. We then
+replace the body of the function with an if statement, checking whether any of
+the parameters are function handles, placing the naive first version in the
+then branch, and the optimized second version in the else branch.
 
-\section{Minimizing call graph invalidation}
+The "+ Checks" column in \tableref{tab:InstrumentationResults} shows the
+performance of the instrumented code with this enhancement applied. For typical
+\matlab benchmarks that are heavy on array operations, this drastically reduces
+the overhead, although the runtime check itself does lead to slightly lower
+performance in some of the benchmarks. For the benchmarks that do use function
+handles, the effect on performance is negligible.
 
-The call graph computed from a profiling run maps source positions to other
-source positions. As such, it is extremely sensitive to even minor changes to
-the project code -- even ostensibly inconsequential changes like adding
-whitespace or comments would invalidate portions of the call graph as tokens
-are shifted around. A sufficiently sophisticated implementation can ward
-against this by keeping track of the moving tokens and computing offsets as
-needed before querying the call graph. A larger issue is that, a priori, the
-effect of a textual code change on the call graph is not obvious, requiring us
-to update the call graph in the face of any change, no matter how minor, in
-order to ensure stale edges are excised. Further, profiling doesn't really lend
-itself to any sort of incremental call graph updating scheme; our only real
-means of updating the call graph is to invalidate it and replace it with the
-result of triggering another execution. Depending on the project and the
-provided entry point code, each execution could potentially be expensive --
-likely too expensive for our purposes, since in an IDE, unlike in some other
-applications of call graphs, the code is apt to be in constant flux,
-practically requiring us to be triggering an execution whenever the user stops
-typing. Given all this, we would like to somehow make our call graph more
-robust in the face of code changes.
+\subsubsection{Optimized runtime functions}
 
-\subsection{Multiple entry points}
+The optimizations described thus far aim to reduce the number of expressions
+requiring instrumentation. This helps tremendously on our numerical benchmarks,
+where the call graphs are actually empty, or contain a single edge linking a
+call from the benchmark's driver function to the benchmark itself; in these
+cases, we can reduce the overhead to be negligible. For those expressions
+where instrumentation is actually needed, however, we also investigate the
+runtime overhead associated with each function call.
 
-Rather than relying on a single entry point to guide profiling runs, multiple
-entry points can be provided, ideally each small and independent, analogously
-to different tests in a unit test suite. During the profiling run, each entry
-point is executed in turn, each resulting in its own call graph. These are then
-combined into a composite call graph, queries against which are resolved by
-forwarding them to each component call graph in turn and concatenating the
-results together.
+After some profiling on a long-running benchmark, we identify the following
+bottlenecks.
 
-The advantage of this approach is that each entry point's call graph can be
-invalidated independently. When a file is modified, only call graphs where at
-least one node corresponds to a position within that file are discarded. When
-queries are submitted to the composite call graph, it can attempt to answer
-them with the remaining information. A profiling run only needs to be triggered
-if the query comes up empty, and only the invalidated entry points need to be
-executed again.
+\begin{itemize}
+  \item Our runtime uses the \code{fprintf} functions to log call and enter
+    events to a log file. It turns out that by default, \matlab's
+    implementation of \code{fprintf} flushes the output buffer each time the
+    function is called, so that each of these calls is actually hitting the
+    filesystem. For builtin functions, this happens three times per call.
 
-% TODO(isbadawi): Does this make sense? Because call graph queries can have
-% multiple answers, so even if your result is nonempty, updating the call
-% graph could still give you more.
+    In addition to the usual \code{'w'} and \code{'a'} writing modes,
+    \matlab's \code{fopen} function also accepts \code{'W'} and \code{'A'},
+    which behave similarly to their lowercase couterparts, except that the
+    output buffer is not flushed until it either reaches capacity or the file
+    is closed (via the \code{fclose} function). Simply making this one
+    character change in the \code{mclab\_callgraph\_init} functions leads to
+    a 1.5x speedup.
 
-\subsection{Classifying edits}
+  \item Function calls in \matlab are quite expensive. The
+    \code{mclab\_callgraph\_log\_then\_run} calls \code{mclab\_callgraph\_log}
+    to do the writing -- inlining this call leads to significant performance
+    boost.
+\end{itemize}
 
-Rather than invalidating the call graph on every change, we can try to be more
-discriminating. As alluded to earlier, it is likely difficult if not impossible
-in general to reliably predict whether a given change requires an update to the
-call graph. However, given a description of the differences between the two
-versions of the code, we can apply some heuristics to avoid recomputation in
-some cases. If we can somehow determine that a given change will have no effect
-on the call graph, then we just need to keep track of offsets to add to token
-positions before querying the call graph.
-
-A natural first approach is to parse both versions of the code and apply a tree
-differencing algorithm on the two ASTs. If the trees have the same structure,
-which might happen if the change affected only the layout of the code, for
-instance by adding or removing comments or adjusting the indentation, then the
-behavior of the code is the same. Parsing might be expensive, but is likely to
-be required by different components of an IDE anyhow; for example, a typical
-feature provided by IDEs is syntax checking, whereby syntax errors are
-presented to the user as they type. Thus, there is only the added cost of
-applying the differencing algorithm.
-
-% TODO(isbadawi): Flesh this out, more formal
-
-% Maybe parsing is not required in some cases -- can determine whether a
-% change is whitespace only just by looking at the diff.
-% (but MATLAB is whitespace sensitive in some cases...)
-% But if we're parsing anyway, does this matter?
-
-\section{Related work}
-
-% Look at trace summarization, or compaction?
-
-% Look into context-sensitive call graphs? Would be neat, but not sure what
-% a good UI would be to exploit this information in the IDE...
-
-% "Efficient Construction of Approximate Call Graphs for JavaScript IDE Services", ICSE 2013
+The "Better runtime" column in \tableref{tab:InstrumentationResults} shos
+the performanced of the instrumented code with this enhancement applied.
