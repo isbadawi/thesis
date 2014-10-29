@@ -433,9 +433,10 @@ orders of magnitude. While we're able to optimize them slightly, they tend to
 stay within the same order of magnitude.
 
 \begin{table}
-\begin{tabular}{| l | l | l | l | l | l | l |}
+\begin{tabular}{| l || l || l | l | l | l | l |}
   \hline
   Benchmark & Original & Naive & + Prop & - Builtins & + Checks & Better runtime \\ \hline
+            & \multicolumn{1}{c||}{(s)} & \multicolumn{5}{c|}{Slowdowns} \\ \hhline{|=||=||=|=|=|=|=|}
   adpt        & 0.946 & 95.1 & 97.9 & 25.4 & 23.9 & 22.3  \\ \hline
   arsim       & 0.379 & 2.60 & 1.91 & 1.01 & 1.03 & 1.02  \\ \hline
   bbai        & 0.211 & 1.07 & 1.07 & 1.04 & 1.03 & 1.01  \\ \hline
@@ -455,7 +456,7 @@ stay within the same order of magnitude.
   nb1d        & 8.43  & 6.59 & 6.63 & 2.14 & 0.984& 0.96  \\ \hline
   nb3d        & 0.806 & 2.25 & 1.88 & 1.23 & 1.14 & 1.24  \\ \hline
   numprime    & 0.007 & 2.18 & 2.11 & 2.62 & 2.72 & 3.03  \\ \hline
-  optstop     & 0.052 & 2.62 & 2.65 & 1.99 & 2.19 & 0.008 \\ \hline
+  optstop     & 0.052 & 2.62 & 2.65 & 1.99 & 2.19 & 2.96 \\ \hline
   quadrature  & 0.005 & 3.34 & 3.29 & 3.29 & 3.84 & 3.67  \\ \hline
   scra        & 0.232 & 1.25 & 1.23 & 1.10 & 1.11 & 1.26  \\ \hline
   spqr        & 0.221 & 1.15 & 1.14 & 1.08 & 1.10 & 1.25  \\ \hline
@@ -465,8 +466,8 @@ stay within the same order of magnitude.
   odeEuler    & 0.498 & 908  & 768  & 783  & 762  & 523   \\ \hline
   odeMidpt    & 0.553 & 754  & 655  & 657  & 650  & 471   \\ \hline
   odeRK4      & 0.614 & 872  & 775  & 771  & 784  & 481   \\ \hline
-  sim\_anl    & 0.652 & 62.9 & 62.1 & 23.9 & 24.6 & 19.4  \\ \hline
-  Geometric mean & 0.399 & 30.3 & 23.5 & 7.96 & 4.53 & 3.54 \\ \hline
+  sim\_anl    & 0.652 & 62.9 & 62.1 & 23.9 & 24.6 & 19.4  \\ \hhline{|=||=||=|=|=|=|=|}
+  Geometric mean & 0.399 & 30.3 & 23.5 & 7.96 & 4.53 & 4.31 \\ \hline
 \end{tabular}
 \caption{Running times of the instrumented code with different optimizations
 enabled.}
