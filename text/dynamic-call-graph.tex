@@ -609,7 +609,7 @@ elements or fields is being assigned to).
 
   $id(\dots)$ & $info(id)$ & if $kind(id) = FN \wedge id \in info$ \\
               & $\top$ & if $kind(id) = FN \wedge id \not \in info$ \\
-              & $info(f)$ & if $in(id) = NAMED @f \wedge f \in info$ \\
+              & $info(f)$ & if $in(id) = NAMED(f) \wedge f \in info$ \\
               & $\top$ & if $in(id) \in \lbrace H, ANON, NAMED \rbrace $ \\
               & $in(id)$ & otherwise \\ \hline
 
