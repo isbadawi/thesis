@@ -331,9 +331,12 @@ or accesses are instrumented (this is the first number in each column), and how
 many of these are inside loops (this is the number in parentheses in each
 column). Note that this is computed is a relatively simple-minded way, and
 doesn't catch, for example, calls or accesses inside functions which are called
-inside loops. Nevertheless, this can be an interesting metric. We then show how
-each optimization described later in this section affects this metric (in other
-words, how many expressions we are able to avoid instrumenting).
+inside loops. Nevertheless, this can be an interesting metric. The "Naive"
+column refers to the instrumentation described thus far. We then show how each
+optimization described later in this section affects this metric (in other
+words, how many expressions we are able to avoid instrumenting). These are the
+"+ Prop", "- Builtins", and "+ Checks" columns; their specific meanings are
+described later in this section.
 
 \begin{table}
   \begin{tabular}{| l | p{10cm} |}
@@ -421,9 +424,9 @@ programs were executed on a machine with an Intel\textregistered \,
 Core\texttrademark \, i7 CPU @ 2.4 GHz and 8 GB of memory, running OS X 10.9.4,
 using \matlab version R2014b. For each benchmark, we show the running times of
 the original code in seconds, and the slowdown of each instrumented version
-relative to the original code. The last row shows the geometric mean of each
-column. The specific meanings of the "+ Prop", "- Builtins", "+ Checks", and
-"Better runtime" columns are described later in this section.
+relative to the original code. The columns refer to the same versions as in
+\tableref{tab:InstrumentationBenchmarksInstrumentable}, and the specific
+meaning of the "Better runtime" is given later in this section.
 
 For the naive instrumentation described thus far, we see that the slowdown can
 be extreme for some benchmarks, with six of the benchmarks undergoing a three
@@ -531,9 +534,12 @@ as follows.
     associate with the variable the abstract value $DWH$ (data with handles).
 \end{itemize}
 
-In addition to these, we have $\bot$ and $\top$ values with their
-usual meaning. The analysis' merge operation is the join $\vee$ of the partial
-order illustrated in \figref{fig:HandleLattice}.
+In addition to these, we have $\top$ and $\bot$ values, where $\top$ is the
+most general value, and $\bot$ means the value is as yet undefined. The handle
+propagation analysis is an intraprocedural forward dataflow analysis. At each
+program point, it associates with each variable name a single abstract value.
+The merge operation is the join $\vee$ of the partial order illustrated in
+\figref{fig:HandleLattice}.
 
 \begin{figure}
 \centering
@@ -561,10 +567,6 @@ order illustrated in \figref{fig:HandleLattice}.
 \label{fig:HandleLattice}
 \end{figure}
 
-The handle propagation analysis is an intraprocedural dataflow analysis. At
-each program point, it associates with each variable name a single abstract
-value.
-
 To help with the definition of the analysis rules, we define a helper function
 $struct$ operating on abstract values. In particular, it takes in a set of
 abstract values and, interpreting them as the indvidual elements of an array or
@@ -583,34 +585,35 @@ The analysis operates on a regular \matlab AST, using \mcsaf, the \mclab
 toolkit's static analysis framework. When we encounter an assignment statement
 $S$, we first examine the top-level expression $E$ on the right hand side, and
 compute from it an abstract value $gen(E)$. The rules for this are shown in
-\tableref{tab:HandleExprRules}; we write $in(id)$ to refer to the abstract
-value associated with the identifier $id$ in the in set of $S$, and $kind(id)$
-to refer to the kind analysis result for that identifier (either FN or VAR,
-meaning the variable refers to a function or not, respectively). While the
-analysis is intraprocedural over user-defined functions, an attempt is made
+\tableref{tab:HandleExprRules}, where we write $in(id)$ to refer to the
+abstract value associated with the identifier $id$ in the in set of $S$, and
+$kind(id)$ to refer to the kind analysis result for that identifier (either FN
+or VAR, meaning the variable refers to a function or not, respectively). While
+the analysis is intraprocedural over user-defined functions, an attempt is made
 to avoid imprecision caused by calls to builtin functions in the form of a
-table, mapping, for a few hundred builtin functions, their name to an abstract
-value representing their return value. We write $info(id)$ to refer to the
-entry associated with $id$ in this table if there is one.
+table $knownBuiltins$, mapping, for a few hundred builtin functions, their name
+to an abstract value representing their return value.
 
 \tableref{tab:HandleStmtRules} shows how $gen(E)$ is used to compute the new
 abstract value for the variable being assigned to, depending on the kind of
 assignment (whether the variable is assigned to directly, or one of its
-elements or fields is being assigned to).
+elements or fields is being assigned to). In each case, $id$ is the main
+identifier being assigned to in $S$. The out set of $S$ is the same as the
+in set, with the value for $id$ replaced by value in the right hand column.
 
 \begin{table}
 \begin{tabular}{l | l l}
-  Expression $E$ & Abstract values (i.e. $gen(E)$)  \\ \hline
+  Expression $E$ & Abstract value $gen(E)$ \\ \hline
   \code{@name}    & $NAMED(name)$ \\ \hline
   \code{@(..)...} & $ANON(@(..)...)$ \\ \hline
 
   $id$ & $in(id)$ & if $kind(id) = VAR$ \\
-       & $info(id)$ & if $kind(id) = FN \wedge id \in info$ \\
-       & $\top$ & if $kind(id) = FN \wedge id \not \in info$ \\ \hline
+       & $knownBuiltins(id)$ & if $kind(id) = FN \wedge id \in knownBuiltins$ \\
+       & $\top$ & if $kind(id) = FN \wedge id \not \in knownBuiltins$ \\ \hline
 
-  $id(\dots)$ & $info(id)$ & if $kind(id) = FN \wedge id \in info$ \\
-              & $\top$ & if $kind(id) = FN \wedge id \not \in info$ \\
-              & $info(f)$ & if $in(id) = NAMED(f) \wedge f \in info$ \\
+  $id(\dots)$ & $knownBuiltins(id)$ & if $kind(id) = FN \wedge id \in knownBuiltins$ \\
+              & $\top$ & if $kind(id) = FN \wedge id \not \in knownBuiltins$ \\
+              & $knownBuiltins(f)$ & if $in(id) = NAMED(f) \wedge f \in knownBuiltins$ \\
               & $\top$ & if $in(id) \in \lbrace H, ANON, NAMED \rbrace $ \\
               & $in(id)$ & otherwise \\ \hline
 
@@ -638,11 +641,11 @@ elements or fields is being assigned to).
 \label{tab:HandleStmtRules}
 \end{table}
 
-For our purposes, if the target of a variable access has the \code{DO} abstract
-value associated with it, then it's just plain array access, and we can safely
-abstain from instrumenting it. The "+ Prop" column in
-\tableref{tab:InstrumentationResults} shows the performance of the instrumented
-code with this enhancement applied (as a slowdown relative to the
+For our purposes, if the target of a variable access is not a handle -- in
+other words, if the abstract value associated with it is \code{DO}, \code{DHO}
+or \code{DWH}, then we can safely abstain from instrumenting it. The "+ Prop"
+column in \tableref{tab:InstrumentationResults} shows the performance of the
+instrumented code with this enhancement applied (as a slowdown relative to the
 uninstrumented code).
 
 \subsubsection{Avoiding builtin call instrumentation}
@@ -656,15 +659,17 @@ whether a given function call is a call to a builtin function. Because of this,
 the naive instrumentation goes ahead and instruments every function call, even
 if it likely is a call to a builtin.
 
-As a conservative estimate, when we encounter a potential call to a builtin
-function, we search through the project code, as well as library code, in
-order to check whether any user-defined functions exist with the same name,
-and only skip the instrumentation if there are no such functions. We're not
-looking to statically determine the target of the call, just whether the
-target might be a user-defined function. This is largely a filesystem
-operation, not really static analysis. This assumes we have access to all the
-code the user is apt to run, which is not an unreasonable assumption, given
-that the user is the one using the static analysis.
+While we can't statically determine the target of a function call to check
+whether it's a builtin, we can examine the application's code, as well as any
+library code it depends on, in order to gather a list $A$ of user-defined
+functions whose names conflict with builtin functions. In \matlab, a function's
+name is the name of the file it's defined in (less the extension), so this is
+just a simple filesystem traversal. Then, during instrumentation, when we
+encounter a potential call to a builtin function, we check whether the name of
+function appears in $A$. If it doesn't, then we can safely avoid instrumenting
+the call. One assumption here is that we have access to all the code the user
+is apt to run; this is not an unreasonable, given that the user is requesting a
+call graph, and so is likely willing to provide all the relevant code.
 
 We make a special exception for the builtin function \code{feval}, which is
 often used to invoke function handles instead of the regular function call
@@ -677,14 +682,17 @@ forwarding them to \code{feval} -- when a user-specified function is needed.
 added to the language with the release of \matlab 6 in 2000, but initially
 could only be invoked via \code{feval}. Support for invoking function handles
 with the regular function call syntax was not added until the release of
-\matlab 7 in 2004. Given all this, it's reasonable to treat \code{feval} the
-same way we do function calls.
+\matlab 7 in 2004. Given all this, we can almost view \code{feval} as an
+alternative syntax for a function call. We therefore instrument all calls to
+\code{feval}.
 
-Note that the decision not to instrument direct calls to builtins doesn't
-invalidate the concerns of \secref{sec:CallgraphBuiltins}, because there
-might be function handles that point to builtin functions, and in those
-cases the same problem traces -- with call events that don't have a
-corresponding enter event -- can arise.
+As as aside, in \secref{sec:CallgraphBuiltins}, we discussed the complications
+caused by instrumenting calls to builtin functions. Even though we decide here
+not to instrument direct calls to builtins, those complications still arise,
+because function handles can point to builtin functions, and in those cases the
+same problem traces -- with call events that don't have a corresponding enter
+event -- can happen. Thus, the changes to the runtime described in that section
+are still necessary.
 
 The "- Builtins" column in \tableref{tab:InstrumentationResults} shows the
 performance of the instrumented code with this enhancement applied.
