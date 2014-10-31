@@ -723,15 +723,20 @@ of three-address form.
 The handle propagation analysis is precise enough in practice if we restrict
 ourselves to a single function -- a lot of the imprecision occurs when arrays
 are passed around as function parameters. As a simple middle groud, we create
-two instrumented versions of each function. In the first version, we seed the
-handle propagation analysis with the conservative assumption that any of the
-function parameters might be a function handle (this is the same assumption
-we've been using thus far). In the second, we seed it with the assumption that
-all of the function parameters are definitely just plain data arrays. We then
-replace the body of the function with an if statement, checking whether any of
-the parameters are function handles, placing the naive first version in the
-then branch, and the optimized second version in the else branch.
+two instrumented versions of each function. In the first version ($S$ for
+slow), we seed the handle propagation analysis with the conservative assumption
+that any of the function parameters might be a function handle (this is the
+same assumption we've been using thus far). In the second ($F$ for fast), we
+seed it with the assumption that all of the function parameters are definitely
+just plain data arrays. We then instrument both versions independently.
 
+If both versions are the same, then there's nothing to do. Otherwise, we
+replace the body of the function with an if statement, with $S$ as the then
+branch, and $F$ as the else branch. The condition checks at runtime, for each
+input parameter $p$ with at least one use instrumented in $S$, whether $p$
+is a function handle (use the \matlab builtin function \code{isa}).
+
+% TODO(isbadawi): Revisit this paragraph after rerunning benchmarks.
 The "+ Checks" column in \tableref{tab:InstrumentationResults} shows the
 performance of the instrumented code with this enhancement applied. For typical
 \matlab benchmarks that are heavy on array operations, this drastically reduces
