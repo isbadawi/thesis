@@ -567,11 +567,105 @@ The merge operation is the join $\vee$ of the partial order illustrated in
 \label{fig:HandleLattice}
 \end{figure}
 
-To help with the definition of the analysis rules, we define a helper function
-$struct$ operating on abstract values. In particular, it takes in a set of
-abstract values and, interpreting them as the indvidual elements of an array or
-cell array $a$, returns an abstract value representing $a$ itself. It is
-defined as follows.
+
+The analysis operates on a regular \matlab AST, using \mcsaf, the \mclab
+toolkit's static analysis framework. When we encounter an assignment statement
+$S$, we first examine the top-level expression $E$ on the right hand side, and
+compute from it an abstract value $gen(E)$. The rules for this are summarized in
+\tableref{tab:HandleExprRules}, and explained in more detail below.
+
+In \tableref{tab:HandleExprRules} and in what follows, we write $in(id)$ to
+refer to the abstract value associated with the identifier $id$ in the in set
+of $S$, and $kind(id)$ to refer to the kind analysis result for that identifier
+(either FN or VAR, meaning the variable refers to a function or not,
+respectively). While the analysis is intraprocedural over user-defined
+functions, an attempt is made to avoid imprecision caused by calls to builtin
+functions in the form of a table $info$, mapping, for a few hundred builtin
+functions, their name to an abstract value representing their return value.
+
+\begin{table}
+\begin{tabular}{l | l l r}
+  Expression $E$ & Abstract value $gen(E)$ \\ \hline
+  \code{@name}    & $NAMED(name)$ & & (1) \\ \hline
+  \code{@(..)...} & $ANON(@(..)...)$ & & (2) \\ \hline
+
+  $id$ & $in(id)$ & if $kind(id) = VAR$ & (3) \\
+       & $info(id)$ & if $kind(id) = FN \wedge id \in info$ & (4) \\
+       & $\top$ & if $kind(id) = FN \wedge id \not \in info$ & (5) \\ \hline
+
+  $id(\dots)$ & $info(id)$ & if $kind(id) = FN \wedge id \in info$ & (6) \\
+              & $\top$ & if $kind(id) = FN \wedge id \not \in info$ & (7) \\
+              & $info(f)$ & if $in(id) = NAMED(f) \wedge f \in info$ & (8) \\
+              & $\top$ & if $in(id) \in \lbrace H, ANON, NAMED \rbrace$ & (9) \\
+              & $in(id)$ & otherwise & (10) \\ \hline
+
+  $id\lbrace\dots\rbrace$ & $ DO $ & if $in(id) = DO$ & (11) \\
+  $id.\cdots$ & $ H $ & if $in(id) = DHO$ & (12) \\
+  $id.(\dots)$ & $\top$ & if $in(id) = DWH$ & (13) \\ \hline
+
+  $\lbrace E_1, \dots, E_n \rbrace$ & $struct (\big\lbrace gen(E_1), \dots, gen(E_n) \big\rbrace)$ & & (14) \\
+  $[ E_1, \dots, E_n ]$ & & \\ \hline
+  any other expression & $DO$ & & (15) \\ \hline
+\end{tabular}
+\caption{Handle propagation analysis rules for expressions.}
+\label{tab:HandleExprRules}
+\end{table}
+
+We consider the following cases for $E$.
+
+\begin{itemize}
+
+  \item $E$ is a function handle expression, or an anonymous function
+    definition. In that case we simply generate the appropriate $NAMED$ or
+    $ANON$ abstract value. This corresponds to rules (1) and (2).
+
+  \item $E$ is a use of an identifier $id$. In \matlab, the parentheses can be
+    omitted from a function call -- but not a function handle invocation -- if
+    no arguments are passed. Thus $E$ is either a variable access, or a call to
+    named function. The kind analysis is enough to distinguish between the two
+    cases. If it's a variable, we simply propagate forward whatever information
+    we had (rule (3)). If it's call to a function with has an entry in $info$,
+    we use it (rule (4)). Otherwise, it's a call to an unknown function which
+    might return anything, so we use $\top$ (rule (5)).
+
+  \item $E$ is a parameterized expression $id(\dots)$. As in the previous case,
+    $E$ could be a call to named function which we either have information
+    about or not -- rules (6) and (7) in \tableref{tab:HandleExprRules} are
+    identical to rules (4) and (5).
+
+    Because of the parentheses, this might be a function handle invocation. If
+    $in(id) = NAMED(f)$ -- that is, a handle to a named function $f$ -- and we
+    have an entry for $f$ in $info$, then we can use it (rule (8)). If we don't
+    know anything about $f$, or if $id$ contains a handle we don't know
+    anything about, then we treat this as an arbitrary function call and use
+    $\top$ (rule (9)).
+
+    Otherwise, $id$ refers to a variable containing data -- either an array or
+    a cell array (but not a struct, because structs can't be accessed with
+    parentheses). Arrays in \matlab can't contain function handles. Cell arrays
+    can contain handles, but indexing a cell array with parentheses (rather
+    than braces) doesn't return the contained data directly, instead returning
+    a set of cells. Thus in this case we can again simply propagate forward the
+    information we already had for $id$ (rule (10)).
+
+  \item $E$ could be a cell array indexing expression $id\lbrace\dots\rbrace$,
+    or struct access expression $id.\cdots$ or $id.(\dots)$. We treat all of
+    these cases the same way. If $id$ is known to only contain data ($DO$),
+    then all of its elements only contain data, so we can use $DO$ again (rule
+    (11)). If $id$ is known to only contain handles ($DHO$), then anything we
+    pull out of it is necessarily a handle, so we can use $H$ (rule (12)).
+    Otherwise, what we pull out might be data or a handle, and thus we use
+    $\top$ (rule (13)).
+
+  \item $E$ could be an array or cell array literal. For this case, we define a
+    helper function $struct$ operating on abstract values (which we will reuse
+    for the assignment cases later on). In particular, it takes in a set of
+    abstract values and, interpreting them as the indvidual elements of an
+    array or cell array $a$, returns an abstract value representing $a$ itself.
+    If all the elements are data only, then the whole is data only. If the
+    elements are all handles, or data containing handles, then the whole is
+    data containing handles. Otherwise, the whole is data that might contain
+    either data or handles. $struct$ is defined as follows.
 
 \begin{align*}
 struct(V) &= \begin{cases}
@@ -581,53 +675,55 @@ struct(V) &= \begin{cases}
 \end{cases} \\
 \end{align*}
 
-The analysis operates on a regular \matlab AST, using \mcsaf, the \mclab
-toolkit's static analysis framework. When we encounter an assignment statement
-$S$, we first examine the top-level expression $E$ on the right hand side, and
-compute from it an abstract value $gen(E)$. The rules for this are shown in
-\tableref{tab:HandleExprRules}, where we write $in(id)$ to refer to the
-abstract value associated with the identifier $id$ in the in set of $S$, and
-$kind(id)$ to refer to the kind analysis result for that identifier (either FN
-or VAR, meaning the variable refers to a function or not, respectively). While
-the analysis is intraprocedural over user-defined functions, an attempt is made
-to avoid imprecision caused by calls to builtin functions in the form of a
-table $knownBuiltins$, mapping, for a few hundred builtin functions, their name
-to an abstract value representing their return value.
+    For this case, we traverse the literal and compute the abstract values for
+    each of the constituent expressions, finally merging them together with
+    $struct$ (rule (14)).
+
+  \item $E$ could be any other expression. The ones we haven't considered yet
+    include arithmetic and logical expressions, as well as numeric, string,
+    colon and range literals. All of these either are or operate on data only
+    (rule (15)).
+
+\end{itemize}
 
 \tableref{tab:HandleStmtRules} shows how $gen(E)$ is used to compute the new
-abstract value for the variable being assigned to, depending on the kind of
-assignment (whether the variable is assigned to directly, or one of its
-elements or fields is being assigned to). In each case, $id$ is the main
-identifier being assigned to in $S$. The out set of $S$ is the same as the
-in set, with the value for $id$ replaced by value in the right hand column.
+abstract value for the variable being assigned to. In each case, $id$ is the
+main identifier being assigned to in $S$. The out set of $S$ is the same as the
+in set, with the value for $id$ replaced by value in the right hand column. We
+distinguish just two cases for $S$.
 
-\begin{table}
-\begin{tabular}{l | l l}
-  Expression $E$ & Abstract value $gen(E)$ \\ \hline
-  \code{@name}    & $NAMED(name)$ \\ \hline
-  \code{@(..)...} & $ANON(@(..)...)$ \\ \hline
+\begin{itemize}
 
-  $id$ & $in(id)$ & if $kind(id) = VAR$ \\
-       & $knownBuiltins(id)$ & if $kind(id) = FN \wedge id \in knownBuiltins$ \\
-       & $\top$ & if $kind(id) = FN \wedge id \not \in knownBuiltins$ \\ \hline
+  \item $id$ is assigned to directly, as in $id = E$ for some expression $E$.
+    In this case we simply take $gen(E)$ to be the new abstract value for $id$,
+    replacing whatever was there before.
 
-  $id(\dots)$ & $knownBuiltins(id)$ & if $kind(id) = FN \wedge id \in knownBuiltins$ \\
-              & $\top$ & if $kind(id) = FN \wedge id \not \in knownBuiltins$ \\
-              & $knownBuiltins(f)$ & if $in(id) = NAMED(f) \wedge f \in knownBuiltins$ \\
-              & $\top$ & if $in(id) \in \lbrace H, ANON, NAMED \rbrace $ \\
-              & $in(id)$ & otherwise \\ \hline
+  \item $id$ is having one of its elements or fields assigned to. The idea here
+    is that we know $id$ to be some sort of data structure, and only one of its
+    elements is changing. For example, if $in(id) = DO$, and $E$ evaluates to a
+    function handle, then $id$ is now a mix of data and handles.
 
-  $id\lbrace\dots\rbrace$ & $ DO $ & if $in(id) = DO$ \\
-  $id.\cdots$ & $ H $ & if $in(id) = DHO$ \\
-              & $\top$ & $in(id) = DWH$ \\ \hline
+    We model this succinctly by running $gen(E)$ through our $struct$ helper
+    function from earlier. Given a single input value like this, $struct$ will
+    simply coalesce handle values to $DHO$, and $\top$ to $DWH$, and otherwise
+    return its input. If $in(id)$ is one of the data abstract values, then we
+    just merge $in(id)$ with the value returned by $struct$. If $in(id) = \top$
+    for whatever reason, then we still know that after $S$, $id$ will not be a
+    handle, so we use $DWH$, the most general data value.
 
-  $\lbrace E_1, \dots, E_n \rbrace$ & $struct (\big\lbrace gen(E_1), \dots, gen(E_n) \big\rbrace)$ & \\
-  $[ E_1, \dots, E_n ]$ & & \\ \hline
-  any other expression & $DO$ & \\ \hline
-\end{tabular}
-\caption{Handle propagation analysis rules for expressions.}
-\label{tab:HandleExprRules}
-\end{table}
+\end{itemize}
+
+In the second case, we know that $id$ will definitely refer to some sort of
+data structure, because handles can't be assigned to in this way. If $id$
+already has a data abstract value associated with it, then we want to reason
+about what would happen if one of its elements now has $gen(E)$ associated with
+it. For instance, if $id$ was known to contain only data, and $gen(E)$ is a
+handle, then $id$ is now a mix of data and handles. To model this, we pass
+$gen(E)$ to our $struct$ helper function from earlier. For a single input like
+this, $struct$ will coalesce handle values to $DHO$, and coalesce $\top$ to
+$DWH$, and otherwise return its input. We then merge this with the value
+associated with $id$ in the in set.
+
 
 \begin{table}
 \begin{tabular}{l | l l}
@@ -635,6 +731,7 @@ in set, with the value for $id$ replaced by value in the right hand column.
   $id = E$ & $gen(E)$ & \\ \hline
   $id.\cdots = E$ & $in(id) \vee struct(\lbrace gen(E) \rbrace)$ & if $in(id) \in \lbrace DWH, DHO, DO \rbrace$ \\
   $id\lbrace\dots\rbrace = E$ & $DWH$ & otherwise \\
+  $id.(\dots) = E$ & & \\
   $id(\dots) = E$ & & \\ \hline
 \end{tabular}
 \caption{Handle propagation analysis rules for assignments.}
@@ -643,10 +740,13 @@ in set, with the value for $id$ replaced by value in the right hand column.
 
 For our purposes, if the target of a variable access is not a handle -- in
 other words, if the abstract value associated with it is \code{DO}, \code{DHO}
-or \code{DWH}, then we can safely abstain from instrumenting it. The "+ Prop"
-column in \tableref{tab:InstrumentationResults} shows the performance of the
-instrumented code with this enhancement applied (as a slowdown relative to the
-uninstrumented code).
+or \code{DWH}, then we can safely abstain from instrumenting it. As a small
+technical point, to make this decision we use the abstract value associated
+with the variable in the statement's out set, rather than its in set.
+
+The "+ Prop" column in \tableref{tab:InstrumentationResults} shows the
+performance of the instrumented code with this enhancement applied (as a
+slowdown relative to the uninstrumented code).
 
 \subsubsection{Avoiding builtin call instrumentation}
 
