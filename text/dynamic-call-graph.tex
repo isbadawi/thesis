@@ -321,6 +321,7 @@ class of programs where it is common to operate on function handles. These are
 the same benchmarks used by Lameed and Hendren to evaluate their work on
 optimizing \code{feval} implementations \cite{OptimizingFeval}.
 
+% TODO(isbadawi): Want a dynamic thing but get a static thing
 These benchmarks are described briefly in
 \tableref{tab:InstrumentationBenchmarks}. In
 \tableref{tab:InstrumentationBenchmarksInstrumentable}, we include some simple
@@ -341,7 +342,7 @@ described later in this section.
 \begin{table}
   \begin{tabular}{| l | p{10cm} |}
   \hline
-  Name & Description \\ \hline
+  Name & Description \\  \hhline{|=|=|}
   adpt        & Adaptive quadrature via Simpson's rule \\ \hline
   arsim       & Simulates autoregressive model \\ \hline
   bbai        & Babai estimation algorithm \\ \hline
@@ -364,7 +365,7 @@ described later in this section.
   optstop     & Solves optimal stopping problem \\ \hline
   quadrature  & Integrates function via quadrature \\ \hline
   scra        & Computes reduced-rank approximation of matrix \\ \hline
-  spqr        & Computes semi-pivoted QR decomposition of matrix \\ \hline
+  spqr        & Computes semi-pivoted QR decomposition of matrix \\ \hhline{|=|=|}
   bisect      & Finds root of scalar function via bisection method \\ \hline
   gaussQuad   & Composite Gauss-Legendre quadrature \\ \hline
   newton      & Finds root of scalar function via Newton's method \\ \hline
@@ -381,7 +382,7 @@ described later in this section.
 \centering
   \begin{tabular}{| l | l | l | l | l | l |}
   \hline
-  Name & Naive & + Prop & - Builtins & + Checks \\ \hline
+  Name & Naive & + Prop & - Builtins & + Checks \\ \hhline{|=|=|=|=|=|}
   adpt        & 31 (21) & 15 (8) & 1 (1) & 1 (1) \\ \hline
   arsim       & 19 (9) & 12 (3) & 2 (2) & 1 (1) \\ \hline
   bbai        & 13 (8) & 13 (8) & 7 (5) & 2 (2) \\ \hline
@@ -404,7 +405,7 @@ described later in this section.
   optstop     & 15 (14) & 9 (8) & 6 (5) & 6 (5) \\ \hline
   quadrature  & 2 (1) & 2 (1) & 2 (1) & 2 (1)\\ \hline
   scra        & 48 (35) & 40 (27) & 25 (21) & 17 (13) \\ \hline
-  spqr        & 48 (35) & 35 (27) & 21 (21) & 13 (13) \\ \hline
+  spqr        & 48 (35) & 35 (27) & 21 (21) & 13 (13) \\ \hhline{|=|=|=|=|=|}
   bisect      & 31 (7) & 31 (7) & 6 (2) & 4 (2) \\ \hline
   gaussQuad   & 53 (4) & 18 (2) & 4 (1) & 4 (1) \\ \hline
   newton      & 16 (5) & 16 (5) & 3 (2) & 3 (2) \\ \hline
@@ -421,13 +422,14 @@ described later in this section.
 
 The results are shown in \tableref{tab:InstrumentationResults}. All the
 programs were executed on a machine with an Intel\textregistered \,
-Core\texttrademark \, i7 CPU @ 2.4 GHz and 8 GB of memory, running OS X 10.9.4,
+Core\texttrademark \, i7 CPU @ 2.4 GHz and 8 GB of memory, running OS X 10.10,
 using \matlab version R2014b. For each benchmark, we show the running times of
 the original code in seconds, and the slowdown of each instrumented version
 relative to the original code. The columns refer to the same versions as in
 \tableref{tab:InstrumentationBenchmarksInstrumentable}, and the specific
 meaning of the "Better runtime" is given later in this section.
 
+% TODO(isbadawi): Say which six
 For the naive instrumentation described thus far, we see that the slowdown can
 be extreme for some benchmarks, with six of the benchmarks undergoing a three
 order of magnitude slowdown. All of these in the numerical category, and can be
@@ -440,37 +442,37 @@ stay within the same order of magnitude.
   \hline
   Benchmark & Original & Naive & + Prop & - Builtins & + Checks & Better runtime \\ \hline
             & \multicolumn{1}{c||}{(s)} & \multicolumn{5}{c|}{Slowdowns} \\ \hhline{|=||=||=|=|=|=|=|}
-  adpt        & 0.946 & 95.1 & 97.9 & 25.4 & 23.9 & 22.3  \\ \hline
-  arsim       & 0.379 & 2.60 & 1.91 & 1.01 & 1.03 & 1.02  \\ \hline
-  bbai        & 0.211 & 1.07 & 1.07 & 1.04 & 1.03 & 1.01  \\ \hline
-  bubble      & 0.004 & 2.89 & 2.94 & 2.53 & 2.90 & 3.24  \\ \hline
-  capr        & 10.6  & 1550 & 1530 & 1490 & 4.02 & 2.87  \\ \hline
-  clos        & 0.521 & 1.03 & 1.01 & 1.06 & 1.03 & 1.03  \\ \hline
-  create      & 0.033 & 2.31 & 2.88 & 1.52 & 1.75 & 1.54  \\ \hline
-  crni        & 14.1  & 1120 & 751  & 743  & 1.17 & 1.10  \\ \hline
-  dich        & 3.78  & 5340 & 2950 & 1.02 & 1.04 & 1.03  \\ \hline
-  diff        & 1.24  & 1690 & 1660 & 1.02 & 1.05 & 1.09  \\ \hline
-  fdtd        & 1.08  & 2.82 & 1.12 & 1.06 & 1.17 & 1.12  \\ \hline
-  fft         & 1.95  & 217  & 216  & 213  & 2.05 & 2.28  \\ \hline
-  fiff        & 4.83  & 2190 & 18.1 & 0.942& 0.922& 0.998 \\ \hline
-  lgdr        & 0.017 & 2.65 & 2.37 & 1.70 & 2.11 & 2.46  \\ \hline
-  mbrt        & 2.08  & 1490 & 1500 & 4.17 & 4.28 & 3.30  \\ \hline
-  mcpi        & 0.008 & 2.57 & 2.57 & 2.10 & 2.30 & 2.71  \\ \hline
-  nb1d        & 8.43  & 6.59 & 6.63 & 2.14 & 0.984& 0.96  \\ \hline
-  nb3d        & 0.806 & 2.25 & 1.88 & 1.23 & 1.14 & 1.24  \\ \hline
-  numprime    & 0.007 & 2.18 & 2.11 & 2.62 & 2.72 & 3.03  \\ \hline
-  optstop     & 0.052 & 2.62 & 2.65 & 1.99 & 2.19 & 2.96 \\ \hline
-  quadrature  & 0.005 & 3.34 & 3.29 & 3.29 & 3.84 & 3.67  \\ \hline
-  scra        & 0.232 & 1.25 & 1.23 & 1.10 & 1.11 & 1.26  \\ \hline
-  spqr        & 0.221 & 1.15 & 1.14 & 1.08 & 1.10 & 1.25  \\ \hline
-  bisect      & 0.741 & 62.8 & 62.5 & 23.9 & 24.1 & 17.2  \\ \hline
-  gaussQuad   & 1.73  & 20.1 & 18.9 & 10.9 & 10.8 & 11.8  \\ \hline
-  newton      & 1.16  & 39.2 & 39.7 & 20.7 & 20.3 & 16.2  \\ \hline
-  odeEuler    & 0.498 & 908  & 768  & 783  & 762  & 523   \\ \hline
-  odeMidpt    & 0.553 & 754  & 655  & 657  & 650  & 471   \\ \hline
-  odeRK4      & 0.614 & 872  & 775  & 771  & 784  & 481   \\ \hline
-  sim\_anl    & 0.652 & 62.9 & 62.1 & 23.9 & 24.6 & 19.4  \\ \hhline{|=||=||=|=|=|=|=|}
-  Geometric mean & 0.399 & 30.3 & 23.5 & 7.96 & 4.53 & 4.31 \\ \hline
+  adpt        & 0.994 & 96.1 & 73.6 & 1.03 & 1.15 & 1.06    \\ \hline
+  arsim       & 0.252 & 4.09 & 2.78 & 1.03 & 1.03 & 1.01    \\ \hline
+  bbai        & 0.112 & 1.09 & 1.10 & 1.06 & 1.05 & 1.09    \\ \hline
+  bubble      & 0.003 & 3.11 & 3.12 & 2.74 & 3.79 & 3.15    \\ \hline
+  capr        & 10.7  & 1570 & 267 & 267 & 3.72 & 3.16      \\ \hline
+  clos        & 0.358 & 1.08 & 0.99 & 1.01 & 1.07 & 1.01    \\ \hline
+  create      & 0.033 & 2.36 & 2.62 & 1.49 & 1.63 & 1.78    \\ \hline
+  crni        & 15.4  & 1040 & 470  & 485  & 1.07 & 1.17    \\ \hline
+  dich        & 3.79  & 5340 & 2950 & 1.02 & 1.04 & 1.02    \\ \hline
+  diff        & 1.24  & 1690 & 1660 & 1.02 & 1.05 & 0.98    \\ \hline
+  fdtd        & 1.11  & 2.82 & 1.08 & 1.05 & 1.07 & 1.03    \\ \hline
+  fft         & 1.95  & 283  & 145  & 144  & 2.54 & 2.11    \\ \hline
+  fiff        & 4.83  & 2190 & 18.1 & 0.942& 0.922& 0.998   \\ \hline
+  lgdr        & 0.014 & 3.29 & 2.53 & 1.87 & 1.87 & 1.69    \\ \hline
+  mbrt        & 2.08  & 1490 & 1500 & 4.17 & 4.28 & 4.05    \\ \hline
+  mcpi        & 0.007 & 2.96 & 2.97 & 2.08 & 1.95 & 2.12    \\ \hline
+  nb1d        & 8.74  & 6.64 & 6.77 & 2.09 & 1.03 & 0.96    \\ \hline
+  nb3d        & 0.737 & 2.85 & 2.09 & 1.14 & 1.03 & 1.03    \\ \hline
+  numprime    & 0.005 & 2.31 & 2.36 & 2.72 & 2.70 & 2.78    \\ \hline
+  optstop     & 0.048 & 2.46 & 2.48 & 1.59 & 1.81 & 2.35    \\ \hline
+  quadrature  & 0.004 & 3.25 & 3.24 & 3.24 & 3.32 & 3.56    \\ \hline
+  scra        & 0.134 & 1.42 & 1.35 & 1.14 & 1.12 & 1.14    \\ \hline
+  spqr        & 0.119 & 1.38 & 1.28 & 1.09 & 1.15 & 1.15    \\ \hhline{|=||=||=|=|=|=|=|}
+  bisect      & 0.761 & 61.3 & 60.8 & 24.1 & 22.9 & 17.9    \\ \hline
+  gaussQuad   & 1.63  & 26.1 & 24.6 & 13.8 & 14.0 & 10.2    \\ \hline
+  newton      & 1.26  & 42.1 & 41.7 & 22.5 & 22.4 & 16.3    \\ \hline
+  odeEuler    & 0.519 & 814  & 686  & 696  & 677  & 580     \\ \hline
+  odeMidpt    & 0.553 & 717  & 628  & 684  & 658  & 510     \\ \hline
+  odeRK4      & 0.478 & 710  & 624  & 619  & 641  & 475     \\ \hline
+  sim\_anl    & 0.682 & 61.6 & 56.2 & 18.6 & 18.6 & 13.9    \\ \hhline{|=||=||=|=|=|=|=|}
+  Geometric mean & & 32.0 & 21.8 & 6.50 & 4.00 & 3.72 \\ \hline
 \end{tabular}
 \caption{Running times of the instrumented code with different optimizations
 enabled.}
@@ -574,16 +576,7 @@ $S$, we first examine the top-level expression $E$ on the right hand side, and
 compute from it an abstract value $gen(E)$. The rules for this are summarized in
 \tableref{tab:HandleExprRules}, and explained in more detail below.
 
-In \tableref{tab:HandleExprRules} and in what follows, we write $in(id)$ to
-refer to the abstract value associated with the identifier $id$ in the in set
-of $S$, and $kind(id)$ to refer to the kind analysis result for that identifier
-(either FN or VAR, meaning the variable refers to a function or not,
-respectively). While the analysis is intraprocedural over user-defined
-functions, an attempt is made to avoid imprecision caused by calls to builtin
-functions in the form of a table $info$, mapping, for a few hundred builtin
-functions, their name to an abstract value representing their return value.
-
-\begin{table}
+\begin{table}[htbp]
 \begin{tabular}{l | l l r}
   Expression $E$ & Abstract value $gen(E)$ \\ \hline
   \code{@name}    & $NAMED(name)$ & & (1) \\ \hline
@@ -607,9 +600,18 @@ functions, their name to an abstract value representing their return value.
   $[ E_1, \dots, E_n ]$ & & \\ \hline
   any other expression & $DO$ & & (15) \\ \hline
 \end{tabular}
-\caption{Handle propagation analysis rules for expressions.}
+\caption{Handle propagation analysis rules for computing $gen(E)$.}
 \label{tab:HandleExprRules}
 \end{table}
+
+In \tableref{tab:HandleExprRules} and in what follows, we write $in(id)$ to
+refer to the abstract value associated with the identifier $id$ in the in set
+of $S$, and $kind(id)$ to refer to the kind analysis result for that identifier
+(either FN or VAR, meaning the variable refers to a function or not,
+respectively). While the analysis is intraprocedural over user-defined
+functions, an attempt is made to avoid imprecision caused by calls to builtin
+functions in the form of a table $info$, mapping, for a few hundred builtin
+functions, their name to an abstract value representing their return value.
 
 We consider the following cases for $E$.
 
@@ -710,20 +712,7 @@ distinguish just two cases for $S$.
     just merge $in(id)$ with the value returned by $struct$. If $in(id) = \top$
     for whatever reason, then we still know that after $S$, $id$ will not be a
     handle, so we use $DWH$, the most general data value.
-
 \end{itemize}
-
-In the second case, we know that $id$ will definitely refer to some sort of
-data structure, because handles can't be assigned to in this way. If $id$
-already has a data abstract value associated with it, then we want to reason
-about what would happen if one of its elements now has $gen(E)$ associated with
-it. For instance, if $id$ was known to contain only data, and $gen(E)$ is a
-handle, then $id$ is now a mix of data and handles. To model this, we pass
-$gen(E)$ to our $struct$ helper function from earlier. For a single input like
-this, $struct$ will coalesce handle values to $DHO$, and coalesce $\top$ to
-$DWH$, and otherwise return its input. We then merge this with the value
-associated with $id$ in the in set.
-
 
 \begin{table}
 \begin{tabular}{l | l l}
@@ -738,15 +727,42 @@ associated with $id$ in the in set.
 \label{tab:HandleStmtRules}
 \end{table}
 
+% TODO(isbadawi): example here
+% TODO(isbadawi): reverse -- instrument if handle, not avoid instrumenting if not handle
+
 For our purposes, if the target of a variable access is not a handle -- in
 other words, if the abstract value associated with it is \code{DO}, \code{DHO}
-or \code{DWH}, then we can safely abstain from instrumenting it. As a small
-technical point, to make this decision we use the abstract value associated
-with the variable in the statement's out set, rather than its in set.
+or \code{DWH}, then we can safely abstain from instrumenting it. We make the
+decision based on the abstract value associated with the variable in the
+statement's out set, rather than its in set. To see why, consider the function
+in \figref{Fig:OutSetNotInSet}. Since \code{a} is a function parameter, we
+conservatively assign it the value $\top$. Once it is assigned to on line 3, it
+gets the value $DWH$, so we would know not to instrument it, but before that
+statement, its value is still $\top$, so we would have to instrument it. If $a$
+were a handle, however, then the assignment on line 3 would cause a runtime
+error. By using the value in the out set, we can avoid over instrumenting in
+these cases.
 
-The "+ Prop" column in \tableref{tab:InstrumentationResults} shows the
-performance of the instrumented code with this enhancement applied (as a
-slowdown relative to the uninstrumented code).
+\begin{figure}[htbp]
+\begin{lstlisting}
+function f(a)
+  for i = 4:1000
+    a(i) = a(i-1) + a(i-2) + a(i-3);
+  end
+end
+\end{lstlisting}
+\caption{A code snippet where a variable is used and assigned to in the same statement.}
+\label{Fig:OutSetNotInSet}
+\end{figure}
+
+The "+ Prop" column in \tableref{tab:InstrumentationBenchmarksInstrumentable}
+shows how many expressions remain instrumented with this enhancement applied,
+and the corresponding column in \tableref{tab:InstrumentationResults} shows
+the performance of the instrumented code as a slowdown relative to the
+original uninstrumented code. In general the analysis is very effective,
+weeding out many array accesses, and leading to big performance boosts; the
+capr benchmark, for example, runs nearly an order of magnitude faster, going
+from a 1578x slowdown in the naive version to a 293x slowdown.
 
 \subsubsection{Avoiding builtin call instrumentation}
 
@@ -768,7 +784,7 @@ just a simple filesystem traversal. Then, during instrumentation, when we
 encounter a potential call to a builtin function, we check whether the name of
 function appears in $A$. If it doesn't, then we can safely avoid instrumenting
 the call. One assumption here is that we have access to all the code the user
-is apt to run; this is not an unreasonable, given that the user is requesting a
+is apt to run; this is not unreasonable, given that the user is requesting a
 call graph, and so is likely willing to provide all the relevant code.
 
 We make a special exception for the builtin function \code{feval}, which is
@@ -794,8 +810,15 @@ same problem traces -- with call events that don't have a corresponding enter
 event -- can happen. Thus, the changes to the runtime described in that section
 are still necessary.
 
-The "- Builtins" column in \tableref{tab:InstrumentationResults} shows the
-performance of the instrumented code with this enhancement applied.
+The "- Buitins" column in
+\tableref{tab:InstrumentationBenchmarksInstrumentable} shows how many
+expressions remain instrumented with this enhancement applied (in addition to
+the handle propagation analysis described in the previous section) and the
+corresponding column in \tableref{tab:InstrumentationResults} shows the
+performance of the instrumented code as a slowdown relative to the original
+uninstrumented code. The effect of this optimizations depends on how heavily
+the benchmark relied on builtin functions, but it is in general very effective,
+in many cases (e.g. dich, diff) reducing the overhead to near 0.
 
 \subsubsection{Checking type of function arguments at runtime}
 
@@ -822,7 +845,7 @@ of three-address form.
 
 The handle propagation analysis is precise enough in practice if we restrict
 ourselves to a single function -- a lot of the imprecision occurs when arrays
-are passed around as function parameters. As a simple middle groud, we create
+are passed around as function parameters. As a simple middle ground, we create
 two instrumented versions of each function. In the first version ($S$ for
 slow), we seed the handle propagation analysis with the conservative assumption
 that any of the function parameters might be a function handle (this is the
@@ -836,13 +859,15 @@ branch, and $F$ as the else branch. The condition checks at runtime, for each
 input parameter $p$ with at least one use instrumented in $S$, whether $p$
 is a function handle (use the \matlab builtin function \code{isa}).
 
-% TODO(isbadawi): Revisit this paragraph after rerunning benchmarks.
-The "+ Checks" column in \tableref{tab:InstrumentationResults} shows the
-performance of the instrumented code with this enhancement applied. For typical
-\matlab benchmarks that are heavy on array operations, this drastically reduces
-the overhead, although the runtime check itself does lead to slightly lower
-performance in some of the benchmarks. For the benchmarks that do use function
-handles, the effect on performance is negligible.
+The "+ Checks" column in \tableref{tab:InstrumentationBenchmarksInstrumentable}
+\tableref{tab:InstrumentationResults} shows how many expressions remain
+instrumented along the fast path where the check reveals there are actually no
+handles, and the corresponding columns in \tableref{tab:InstrumentationResults}
+shows the performance of the instrumented code with these and all previous
+enhancements applied. For our more typical \matlab benchmarks that are heavy on
+array operations, this drastically reduces the overhead. For the benchmarks
+that do use function handles, the effect on performance is predictably
+negligible.
 
 \subsubsection{Optimized runtime functions}
 
