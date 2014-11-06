@@ -429,13 +429,13 @@ relative to the original code. The columns refer to the same versions as in
 \tableref{tab:InstrumentationBenchmarksInstrumentable}, and the specific
 meaning of the "Better runtime" is given later in this section.
 
-% TODO(isbadawi): Say which six
 For the naive instrumentation described thus far, we see that the slowdown can
-be extreme for some benchmarks, with six of the benchmarks undergoing a three
-order of magnitude slowdown. All of these in the numerical category, and can be
-optimized. The functional benchmarks all see a slowdown between one and two
-orders of magnitude. While we're able to optimize them slightly, they tend to
-stay within the same order of magnitude.
+be extreme for some benchmarks, with six of the benchmarks (capr, carni, dich,
+diff, fiff and mbrt) undergoing a three order of magnitude slowdown. All of
+these in the numerical category, and can be optimized. The functional
+benchmarks all see a slowdown between one and two orders of magnitude. While
+we're able to optimize them slightly, they tend to stay within the same order
+of magnitude.
 
 \begin{table}
 \begin{tabular}{| l || l || l | l | l | l | l |}
@@ -728,12 +728,15 @@ distinguish just two cases for $S$.
 \end{table}
 
 % TODO(isbadawi): example here
-% TODO(isbadawi): reverse -- instrument if handle, not avoid instrumenting if not handle
 
-For our purposes, if the target of a variable access is not a handle -- in
-other words, if the abstract value associated with it is \code{DO}, \code{DHO}
-or \code{DWH}, then we can safely abstain from instrumenting it. We make the
-decision based on the abstract value associated with the variable in the
+% TODO(isbadawi): Maybe revisit this?
+% Consider e.g.
+% a = @abs;
+% a = zeros(a(5));
+% Contrived, but eh.
+For our purposes, given a parameterized expression $id(\dots)$, we only need to
+instrument it if $out(id) \in \lbrace NAMED, ANON, H, \top \rbrace$. We make
+the decision based on the abstract value associated with the variable in the
 statement's out set, rather than its in set. To see why, consider the function
 in \figref{Fig:OutSetNotInSet}. Since \code{a} is a function parameter, we
 conservatively assign it the value $\top$. Once it is assigned to on line 3, it
@@ -744,7 +747,7 @@ error. By using the value in the out set, we can avoid over instrumenting in
 these cases.
 
 \begin{figure}[htbp]
-\begin{lstlisting}
+\begin{lstlisting}[numbers=left]
 function f(a)
   for i = 4:1000
     a(i) = a(i-1) + a(i-2) + a(i-3);
@@ -810,7 +813,7 @@ same problem traces -- with call events that don't have a corresponding enter
 event -- can happen. Thus, the changes to the runtime described in that section
 are still necessary.
 
-The "- Buitins" column in
+The "- Builtins" column in
 \tableref{tab:InstrumentationBenchmarksInstrumentable} shows how many
 expressions remain instrumented with this enhancement applied (in addition to
 the handle propagation analysis described in the previous section) and the
@@ -883,6 +886,7 @@ After some profiling on a long-running benchmark, we identify the following
 bottlenecks.
 
 \begin{itemize}
+
   \item Our runtime uses the \code{fprintf} functions to log call and enter
     events to a log file. It turns out that by default, \matlab's
     implementation of \code{fprintf} flushes the output buffer each time the
@@ -901,7 +905,8 @@ bottlenecks.
     \code{mclab\_callgraph\_log\_then\_run} calls \code{mclab\_callgraph\_log}
     to do the writing -- inlining this call leads to significant performance
     boost.
+
 \end{itemize}
 
-The "Better runtime" column in \tableref{tab:InstrumentationResults} shos
-the performanced of the instrumented code with this enhancement applied.
+The "Better runtime" column in \tableref{tab:InstrumentationResults} shows the
+performance of the instrumented code with these enhancements applied.
