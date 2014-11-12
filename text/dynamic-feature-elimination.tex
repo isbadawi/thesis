@@ -90,6 +90,28 @@ Very large (100+) & 6 \\ \hline
 
 \subsection{Scripts}
 
+\matlab scripts are files containing a sequence of statements (as opposed to
+function definitions). Like functions, scripts can be invoked, executing each
+of their statements in turn; this is done using the same syntax as for function
+calls. Unlike functions, however, scripts don't execute their own workspace (or
+scope); instead, scripts execute directly in their caller's workspace, and thus
+have read and write access to any variables in scope there. Also, scripts don't
+have an explicit parameter-passing mechanism; rather, one can simply ensure all
+the required variables exist in the calling workspace.
+
+Within a function, a use of an identifier that isn't declared in the same file
+(either as an input, output, global, persistent, or local variable, or a
+subfunction or nested function) must refer to a named function somewhere on
+\matlab's search path. Inside a script, however, an undeclared identifier could
+also refer to a variable in the workspace of the script's caller. This
+complicates intraprocedural static analysis for scripts.
+
+As an aside, one surprising consequence of the way scripts are executed is that
+scripts almost behave as though they were inlined in the calling code. For
+example, a script could contain a break or continue statement, and if that
+script were invoked inside a loop, then those statements would apply to that
+loop.
+
 \subsection{\code{eval} and variants}
 
 The \code{eval} function evaluates \matlab code passed to it as a string. This
@@ -369,7 +391,7 @@ worthwhile, or easier to deal with in any significant way.
 The \code{who} function can be used to list variables, either in the current
 workspace, a given m-file, or the global scope. The \code{whos} variant behaves
 similarly but also includes information about the sizes and types of each
-variable. These function turns out not to be as popular, with only 4 calls to
+variable. These functions turn out not to be as popular, with only 4 calls to
 the former and 23 to the latter.
 
 \subsection{Lookup path modification}
