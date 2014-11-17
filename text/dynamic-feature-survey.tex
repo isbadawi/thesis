@@ -87,9 +87,7 @@ Very large (100+) & 6 \\ \hline
 \label{tab:1}
 \end{table}
 
-\section{Survey of dynamic features}
-
-\subsection{Scripts}
+\section{Scripts}
 
 \matlab scripts are files containing a sequence of statements (as opposed to
 function definitions). Like functions, scripts can be invoked, executing each
@@ -113,7 +111,7 @@ example, a script could contain a break or continue statement, and if that
 script were invoked inside a loop, then those statements would apply to that
 loop.
 
-\subsection{\code{eval} and variants}
+\section{\code{eval} and variants}
 
 The \code{eval} function evaluates \matlab code passed to it as a string. This
 code is almost arbitrary, and can have side-effects, such as the creation of
@@ -146,7 +144,7 @@ different use cases.
 \end{lstlisting}
 
 
-\subsubsection{Manipulating related variables}
+\subsection{Manipulating related variables}
 
 The most common pattern is to use \code{eval} to create or manipulate sets of
 related variables by calling it inside a loop, using the loop variable to
@@ -205,7 +203,7 @@ chains) to enable more sophisticated queries.
   ]) > 0]
 \end{lstlisting}
 
-\subsubsection{Restricted calls to \code{eval}}
+\subsection{Restricted calls to \code{eval}}
 
 As mentioned, calls to \code{eval} ocurring within anonymous functions, nested
 functions, or functions containing nested functions are not allowed to create
@@ -226,7 +224,7 @@ across 18 benchmarks. The relevant query is given in
 )]
 \end{lstlisting}
 
-\subsubsection{Two-argument form}
+\subsection{Two-argument form}
 
 We find only 19 occurrences of \code{eval}'s two-argument form, across 7
 benchmarks. The second argument is always a string literal, and contains
@@ -237,7 +235,7 @@ In one case, this is used to distinguish between \matlab versions; the first
 argument is a string literal containing a call to a builtin function, but with
 a signature valid only for \matlab 6.0 or later.
 
-\subsubsection{\code{evalc}}
+\subsection{\code{evalc}}
 
 The \code{evalc} function behaves similarly to \code{eval}, but also captures
 any command window output from the evaluation and returns it as a character
@@ -250,7 +248,7 @@ immediately passed to \code{fprintf}. The one legitimate use involves capturing
 and parsing the output of the \matlab built-in \code{dbtype} function, which
 only displays its output instead of returning it.
 
-\subsubsection{\code{feval}}
+\subsection{\code{feval}}
 
 The \code{feval} function takes a function --- either a function handle or a
 name as a string --- and a variable number of arguments, and evaluates that
@@ -278,7 +276,7 @@ across 5 benchmarks. The relevant query is given in
 )]
 \end{lstlisting}
 
-\subsection{Workspace manipulation}
+\section{Workspace manipulation}
 
 In \matlab, workspaces (i.e. scopes) store the values of variables. There is a
 base workspace on which REPL commands operate, along with a workspace for each
@@ -286,7 +284,9 @@ function call (analogous to a stack frame). \matlab supports dynamically
 manipulating these workspaces via the builtin functions \code{clear},
 \code{clearvars}, \code{evalin}, and \code{assignin}.
 
-\subsubsection{\code{evalin}}
+% TODO(isbadawi): Need more takeaways from here on, not just numbers
+
+\subsection{\code{evalin}}
 
 The \code{evalin} function behaves similarly to \code{eval}, but takes an extra
 parameter indicating the workspace in which the evaluation should happen. This
@@ -298,9 +298,8 @@ on the base workspace, and 43 operate on the caller workspace. (Of the two
 remaining calls, one takes the workspace to operate on as a function parameter,
 and the other seems to contain an error --- the first argument is a reference
 to a variable which isn't defined anywhere.)
-% TODO(isbadawi): Look at uses? Seems like it's never a good idea :\
 
-\subsubsection{\code{assignin}}
+\subsection{\code{assignin}}
 
 \code{assignin} is a restricted version of \code{evalin}; rather than support
 arbitrary code execution, the function takes a variable name as a string and a
@@ -311,7 +310,7 @@ given workspace.
 We find 176 calls to \code{assignin} across 52 benchmarks. Of these, 167
 operate on the base workspace, 9 on the caller workspace.
 
-\subsubsection{\code{clear} and \code{clearvars}}
+\subsection{\code{clear} and \code{clearvars}}
 
 The \code{clear} function is used to remove items from the current workspace,
 and providing they're not declared global, freeing them from memory. When
@@ -362,10 +361,12 @@ is given in \lstref{Lst:Clear}. This yields 950 occurrences across
 ]
 \end{lstlisting}
 
-\subsection{Introspection}
+\section{Introspection}
 
 \matlab supports dynamic introspection via the \code{exist}, \code{who} and
 \code{whos} functions.
+
+\subsection{\code{exist}}
 
 The former takes an identifier as a string and checks whether it exists, and if
 so what its kind is -- variable, path, MEX-file, Simulink model, builtin,
@@ -410,13 +411,15 @@ significant way.
 ]
 \end{lstlisting}
 
+\subsection{\code{who} and \code{whos}}
+
 The \code{who} function can be used to list variables, either in the current
 workspace, a given m-file, or the global scope. The \code{whos} variant behaves
 similarly but also includes information about the sizes and types of each
 variable. These functions turn out not to be as popular, with only 4 calls to
 the former and 23 to the latter.
 
-\subsection{Lookup path modification}
+\section{Lookup path modification}
 
 When the \matlab runtime needs to look up a function or script, it searches
 first the current directory the process is executing in, then the \matlab search
@@ -433,7 +436,6 @@ path, possibly containing symbolic \code{..} or \code{.}, denoting a parent
 directory or a current directory, respectively.
 
 We find 187 calls to \code{cd} across 64 benchmarks.
-% TODO(isbadawi): patterns? Doesn't seem to be any obvious ones.
 
 The \code{addpath} function can be used to insert directories either at the
 start or end of the \matlab search path. It takes a variable number of strings
