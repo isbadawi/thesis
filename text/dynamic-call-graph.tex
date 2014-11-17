@@ -337,7 +337,7 @@ column refers to the instrumentation described thus far. We then show how each
 optimization described later in this section affects this metric (in other
 words, how many expressions we are able to avoid instrumenting). These are the
 "+ Prop", "- Builtins", and "+ Checks" columns; their specific meanings are
-described later in this section.
+described in the following section.
 
 \begin{table}
   \begin{tabular}{| l | p{10cm} |}
@@ -427,7 +427,7 @@ using \matlab version R2014b. For each benchmark, we show the running times of
 the original code in seconds, and the slowdown of each instrumented version
 relative to the original code. The columns refer to the same versions as in
 \tableref{tab:InstrumentationBenchmarksInstrumentable}, and the specific
-meaning of the "Better runtime" is given later in this section.
+meaning of the "Better runtime" is given in the following section.
 
 For the naive instrumentation described thus far, we see that the slowdown can
 be extreme for some benchmarks, with six of the benchmarks (capr, carni, dich,
@@ -479,7 +479,7 @@ enabled.}
 \label{tab:InstrumentationResults}
 \end{table}
 
-\subsection{Minimizing overhead}
+\section{Minimizing overhead}
 
 The bulk of the runtime overhead of our approach stems from instrumenting each
 function call and variable access, which is ultimately caused by our inability
@@ -489,7 +489,7 @@ instrumenting each array access is disproportionate relative to the benefit.
 Thus, we apply a few different techniques to try and minimize the amount of
 array accesses that require instrumentation.
 
-\subsubsection{Handle propagation analysis}
+\subsection{Handle propagation analysis}
 
 While the \mclab toolkit doesn't provide any facilities for performing
 interprocedural static analysis on arbitrary \matlab code, we can still track
@@ -767,7 +767,7 @@ weeding out many array accesses, and leading to big performance boosts; the
 capr benchmark, for example, runs nearly an order of magnitude faster, going
 from a 1578x slowdown in the naive version to a 293x slowdown.
 
-\subsubsection{Avoiding builtin call instrumentation}
+\subsection{Avoiding builtin call instrumentation}
 
 \matlab code tends to be fraught with calls to builtin functions, and
 instrumenting these won't give much benefit, since we don't have access to
@@ -823,7 +823,7 @@ uninstrumented code. The effect of this optimizations depends on how heavily
 the benchmark relied on builtin functions, but it is in general very effective,
 in many cases (e.g. dich, diff) reducing the overhead to near 0.
 
-\subsubsection{Checking type of function arguments at runtime}
+\subsection{Checking type of function arguments at runtime}
 
 Our instrumentation speculatively wraps each variable access in a function call
 in case the variable is a function handle. A runtime check to determine whether
@@ -872,7 +872,7 @@ array operations, this drastically reduces the overhead. For the benchmarks
 that do use function handles, the effect on performance is predictably
 negligible.
 
-\subsubsection{Optimized runtime functions}
+\subsection{Optimized runtime functions}
 
 The optimizations described thus far aim to reduce the number of expressions
 requiring instrumentation. This helps tremendously on our numerical benchmarks,
