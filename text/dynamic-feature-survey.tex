@@ -1,0 +1,463 @@
+\matlab supports many heavily dynamic features that are problematic for static
+analysis, and which at present are either ignored or rejected by different
+components of the McLab toolkit. These include
+
+\begin{itemize}
+
+\item scripts, which have error prone scoping semantics compared to functions
+
+\item arbitrary dynamic code evaluation via \code{eval}
+
+\item dynamic function calls via \code{feval}
+
+\item dynamic workspace manipulation either by deleting variables via
+\code{clear} or \code{clearvars} or assigning to them via \code{assignin} or
+\code{evalin}
+
+\item dynamic workspace inspection via \code{exist}, \code{who} or \code{whos}
+
+\item dynamic modification of the function lookup path via \code{cd},
+\code{path}, \code{addpath}, \code{rmpath}
+
+\end{itemize}
+
+In this chapter, we examine each of these, giving a brief primer on their
+semantics and investigating how frequently they occur, and common patterns in
+their usage. Similar invstigations for other dynamic programming languages such
+as JavaScript \cite{TheEvalThatMenDo} and Ruby \cite{ProfileGuidedStaticTyping}
+have shown that in practice, such dynamic features tend to be used in very
+restricted ways which aren't actually difficult to reason about statically,
+and we find that the same holds for \matlab. We then present, in the following
+chapter, some approaches towards transforming code using these features to
+equivalent code that is more amenable to static analysis.
+
+\section{\mcbench}
+
+% TODO mcbench appendix?
+
+The following sections present usage metrics for various dynamic features
+supported by \matlab. These were gathered using \mcbench, a tool that that
+allows users to perform structural queries against a large body of \matlab
+code\footnote{\mcbench is accessible at \url{http://mcbench.cs.mcgill.ca}.}. It
+works by storing on the filesystem an XML version of each \matlab file in its
+corpus -- the \mclab toolkit includes a facility to serialize \matlab abstract
+syntax trees as XML (an example is given in listings \lstref{Lst:McBenchCode}
+and \lstref{Lst:McBenchXml}) -- and allowing XPath queries against them. XPath
+turns out to be quite a useful sort of domain specific language in this
+context, capable of expressing many useful queries. \mcbench also defines a few
+XPath extension functions and predicates in order to make certain queries more
+natural. An initial (obsolete) implementation of \mcbench is described in more
+detail in \cite{SoroushThesis}.
+
+\lstinputlisting[
+  language=Matlab,
+  caption={A simple \matlab function...},
+  label=Lst:McBenchCode,
+]{code/mcbench.m}
+
+\lstinputlisting[
+  language=XML,
+  caption={...and its XML serialization.},
+  label=Lst:McBenchXml,
+  float
+]{code/mcbench.xml}
+
+\mcbench's corpus of \matlab code consists of projects downloaded from the
+\matlab Central File Exchange, an online repository run by MathWorks where
+\matlab programmers share their code. Of these, we selected the 5000 top rated
+projects and the 5000 most downloaded projects. After discarding duplicates and
+programs that couldn't be parsed by our \matlab frontend, we were left with
+4099 projects, containing together 24565 functions and 2955 scripts. The
+projects cover a wide variety of application areas, and include both library
+and application code. The projects vary in size from single files to several
+hundred; a rough size distribution is given in \tableref{tab:1}.
+
+\begin{table}
+\centering
+\begin{tabular}{| l | l |}
+\hline
+Project size in files & Number of projects \\ \hline
+Single (1) & 2444 \\ \hline
+Small (2-9) & 1371 \\ \hline
+Medium (10-49) & 261 \\ \hline
+Large (50-99) & 17 \\ \hline
+Very large (100+) & 6 \\ \hline
+\end{tabular}
+\caption{File count per project distribution.}
+\label{tab:1}
+\end{table}
+
+\section{Survey of dynamic features}
+
+\subsection{Scripts}
+
+\matlab scripts are files containing a sequence of statements (as opposed to
+function definitions). Like functions, scripts can be invoked, executing each
+of their statements in turn; this is done using the same syntax as for function
+calls. Unlike functions, however, scripts don't execute their own workspace (or
+scope); instead, scripts execute directly in their caller's workspace, and thus
+have read and write access to any variables in scope there. Also, scripts don't
+have an explicit parameter-passing mechanism; rather, one can simply ensure all
+the required variables exist in the calling workspace.
+
+Within a function, a use of an identifier that isn't declared in the same file
+(either as an input, output, global, persistent, or local variable, or a
+subfunction or nested function) must refer to a named function somewhere on
+\matlab's search path. Inside a script, however, an undeclared identifier could
+also refer to a variable in the workspace of the script's caller. This
+complicates intraprocedural static analysis for scripts.
+
+As an aside, one surprising consequence of the way scripts are executed is that
+scripts almost behave as though they were inlined in the calling code. For
+example, a script could contain a break or continue statement, and if that
+script were invoked inside a loop, then those statements would apply to that
+loop.
+
+\subsection{\code{eval} and variants}
+
+The \code{eval} function evaluates \matlab code passed to it as a string. This
+code is almost arbitrary, and can have side-effects, such as the creation of
+new variables, although function definitions are not allowed. Calls to
+\code{eval} that occur within anonymous functions, nested functions, or
+functions containing nested functions are not allowed to create new variables.
+Any outputs from the evaluated code are returned via \matlab's variable-length
+output argument list mechanism.
+
+\code{eval} also permits a two-argument form. Normally, if the evaluation
+throws an error, it is silently ignored; if a second argument is passed, then
+it is evaluated instead in case of errors. This two-argument form is deprecated
+and undocumented and can almost always be replaced by \matlab's \code{try ...
+catch} exception handling mechanism. Nevertheless, it still enjoys some use.
+
+We start by finding all calls to \code{eval} using the query from
+\lstref{Lst:QueryEval}. (Here \code{is_call} is a \mcbench-specific XPath
+extension that leverages kind analysis results to distinguish function calls
+from array accesses). This yields 1049 occurrences across 202 projects, or
+4.93\% of the projects in the corpus. We inspect these to try and distinguish
+different use cases.
+
+\begin{lstlisting}[
+  language=Matlab,
+  caption={\mcbench query that finds calls to \code{eval}},
+  label=Lst:QueryEval,
+  float
+]
+//ParameterizedExpr[is_call('eval')]
+\end{lstlisting}
+
+
+\subsubsection{Manipulating related variables}
+
+The most common pattern is to use \code{eval} to create or manipulate sets of
+related variables by calling it inside a loop, using the loop variable to
+construct its input argument. An example is shown in \lstref{Lst:EvalNoArray};
+here, the effect of the loop is to store values in three arrays, \code{n},
+\code{s2}, and \code{Z}, which are then used later in the code. Rather than
+assigning to elements of these arrays, intermediate variables are created via
+calls to \code{eval}, and the arrays are built up incrementally using array
+concatenation in the last statement of the loop. The many intermediate
+variables created along the way are not referenced again after the loop.
+
+We will call such calls \emph{array-like}; array-like calls to \code{eval} can
+almost always refactored to use arrays, cell arrays or structures.
+
+\lstinputlisting[
+  language=Matlab,
+  caption={An iterative numerical procedure implemented using repeated calls
+      to \code{eval} instead of arrays.},
+  label=Lst:EvalNoArray,
+  float
+]{code/loopeval.m}
+
+Without some sort of string analysis, it is difficult to nail down exactly how
+many of the calls follow this pattern. We estimate the amount by searching for
+calls to \code{eval} that appear inside a for-loop, and that have as
+descendents either calls to \code{num2str} or \code{int2str} where the argument
+is the loop variable, or calls to \code{sprintf} where the loop variable
+appears somewhere. This is difficult to express in XPath, so we cheat a little
+by introducing an extension function called \code{loopvars()}, which computes
+the set of loop variables names in the current context by walking up the AST,
+finding for statements and inspecting their header. The resulting query is
+given in \lstref{Lst:QueryEvalLoopIndex}, reports 300 occurrences across 33
+benchmarks, or nearly a third of all calls to \code{eval}.
+
+This is an underestimate, since the query only matches calls where the argument
+string is constructed syntactically inside the argument list; for instance, the
+query won't match calls where the string interpolation is hidden behind a
+function call, or if the call is of the form \code{eval(s)} where \code{s} was
+previously defined according to our criteria. It may be possible to annotate
+the XML form of the AST with enough semantic information (for instance, UD
+chains) to enable more sophisticated queries.
+
+% TODO(isbadawi): do this? Use ids in the XML to add e.g. uses="12,15,53" on
+% defs, defs="7,9" on name expressions.
+
+\begin{lstlisting}[
+  language=Matlab,
+  caption={\mcbench query that estimates calls to eval that use the loop index},
+  label=Lst:QueryEvalLoopIndex,
+  float
+]
+//ParameterizedExpr[is_call('eval') and
+  count(.//ParameterizedExpr[
+    (is_call('num2str', 'int2str') and arg(1)/Name/@nameId=loopvars()) or
+    (is_call('sprintf') and .//Name/@nameId=loopvars())
+  ]) > 0]
+\end{lstlisting}
+
+\subsubsection{Restricted calls to \code{eval}}
+
+As mentioned, calls to \code{eval} ocurring within anonymous functions, nested
+functions, or functions containing nested functions are not allowed to create
+variables. Such calls turn out to be relatively uncommon, occurring 31 times
+across 18 benchmarks. The relevant query is given in
+\lstref{Lst:QueryRestrictedEval}.
+
+\begin{lstlisting}[
+  language=Matlab,
+  caption={\mcbench query that matches calls to eval occuring within anonymous
+      functions, nested functions, or functions containing nested functions},
+  label=Lst:QueryRestrictedEval,
+  float]
+//ParameterizedExpr[is_call('eval') and (
+    ancestor::LambdaExpr or
+    count(ancestor::Function) > 1 or
+    (count(ancestor::Function) = 1 and ancestor::Function//Function)
+)]
+\end{lstlisting}
+
+\subsubsection{Two-argument form}
+
+We find only 19 occurrences of \code{eval}'s two-argument form, across 7
+benchmarks. The second argument is always a string literal, and contains
+typical error-case code like breaking out of a loop, or setting a flag variable
+indicating an error occurred, or printing an error message.
+
+In one case, this is used to distinguish between \matlab versions; the first
+argument is a string literal containing a call to a builtin function, but with
+a signature valid only for \matlab 6.0 or later.
+
+\subsubsection{\code{evalc}}
+
+The \code{evalc} function behaves similarly to \code{eval}, but also captures
+any command window output from the evaluation and returns it as a character
+array as an additional output argument.
+
+\mcbench only found twelve calls to \code{evalc}. Of these, five are passed
+string literals. Four ignore the return value, the only feature distinguishing
+\code{evalc} from \code{eval}. In one case the output is captured and
+immediately passed to \code{fprintf}. The one legitimate use involves capturing
+and parsing the output of the \matlab built-in \code{dbtype} function, which
+only displays its output instead of returning it.
+
+\subsubsection{\code{feval}}
+
+The \code{feval} function takes a function --- either a function handle or a
+name as a string --- and a variable number of arguments, and evaluates that
+function on those arguments, returning whatever the function returns.
+
+We find 457 calls to \code{feval} across 136 benchmarks. At a glance, many of
+these benchmarks are concerned with solvers or optimization problems, which are
+a natural fit for \code{feval}, allowing callers to pass in arbitrary
+functions.
+
+If the first argument is a string literal, or a function handle expression,
+then the call to \code{feval} is completely superfluous. We find 12 such calls,
+across 5 benchmarks. The relevant query is given in
+\lstref{Lst:QueryFevalString}.
+
+\begin{lstlisting}[
+  language=Matlab,
+  caption={\mcbench query that matches superfluous calls to feval},
+  label=Lst:QueryFevalString,
+  float
+]
+//ParameterizedExpr[is_call('feval') and (
+    name(arg(1))='StringLiteralExpr' or
+    name(arg(1))='FunctionHandleExpr'
+)]
+\end{lstlisting}
+
+\subsection{Workspace manipulation}
+
+In \matlab, workspaces (i.e. scopes) store the values of variables. There is a
+base workspace on which REPL commands operate, along with a workspace for each
+function call (analogous to a stack frame). \matlab supports dynamically
+manipulating these workspaces via the builtin functions \code{clear},
+\code{clearvars}, \code{evalin}, and \code{assignin}.
+
+\subsubsection{\code{evalin}}
+
+The \code{evalin} function behaves similarly to \code{eval}, but takes an extra
+parameter indicating the workspace in which the evaluation should happen. This
+parameter can be \code{'base'}, indicating the \matlab base workspace, or
+\code{'caller'}, indicating the workspace of the caller function.
+
+We find 169 calls to \code{evalin} across 58 benchmarks. Of these, 124 operate
+on the base workspace, and 43 operate on the caller workspace. (Of the two
+remaining calls, one takes the workspace to operate on as a function parameter,
+and the other seems to contain an error --- the first argument is a reference
+to a variable which isn't defined anywhere.)
+% TODO(isbadawi): Look at uses? Seems like it's never a good idea :\
+
+\subsubsection{\code{assignin}}
+
+\code{assignin} is a restricted version of \code{evalin}; rather than support
+arbitrary code execution, the function takes a variable name as a string and a
+value, together with a workspace to operate on --- again either \code{'base'}
+or \code{'caller'} --- and assigns the given value to the given variable in the
+given workspace.
+
+We find 176 calls to \code{assignin} across 52 benchmarks. Of these, 167
+operate on the base workspace, 9 on the caller workspace.
+
+\subsubsection{\code{clear} and \code{clearvars}}
+
+The \code{clear} function is used to remove items from the current workspace,
+and providing they're not declared global, freeing them from memory. When
+called with no arguments, it removes all variables from the workspace.
+Alternatively, it can be passed a variable number of variable names or regular
+expressions matching variables names to remove. Finally, it also recognizes
+some special parameters that refer to types of names of clear, such as
+\code{'all'}, \code{'classes'}, or \code{'global'}. \code{clearvars} is similar
+but has even more options to control which names to remove.
+
+We find 1236 calls to \code{clear} across 386 benchmarks, and only 13 calls to
+\code{clearvars}. Of the calls to \code{clear}, only one uses the no argument
+form, and only one uses the regular expression facility. 103 calls use the
+\code{clear all} form. The rest explicitly pass in a sequence of variable names
+to remove.
+
+% TODO(isbadawi): LDVARs pushed to ID, ID might be a function
+
+These results seem slightly implausible, since a very common pattern is for
+\matlab scripts to begin by clearing the workspace. This discrepancy is caused
+by imprecise kind analysis results for scripts \cite{KindAnalysis}. Since
+scripts execute in the context of the calling workspace, the conservative
+approach is to assume that any given identifier potentially refers to a
+variable from the outer scope, rather than a builtin or library function.
+Because of this, calls to \code{clear} inside scripts aren't identified as
+such, and are assumed to be possible variable references. It may be possible to
+devise a more sophisticated interprocedural kind analysis that considers the
+possible workspaces that a script may execute in, but this would be difficult
+(because for instance, computing a call graph for \matlab is difficult).
+
+Since the difference is significant here, we also consider possible references
+to variables called \code{clear} occurring inside scripts. The relevant query
+is given in \lstref{Lst:Clear}. This yields 950 occurrences across
+346 benchmarks. Of these, 26 use the no-argument form, and 682 use the
+\code{clear all} form.
+
+\begin{lstlisting}[
+  language=Matlab,
+  caption={\mcbench query that matches possible calls to clear},
+  label=Lst:Clear,
+  float
+]
+//ParameterizedExpr[
+    name(target())='NameExpr' and
+    target()/Name/@nameId='clear' and
+    target()/@kind='LDVAR' and
+    ancestor::Script
+]
+\end{lstlisting}
+
+\subsection{Introspection}
+
+\matlab supports dynamic introspection via the \code{exist}, \code{who} and
+\code{whos} functions.
+
+The former takes an identifier as a string and checks whether it exists, and if
+so what its kind is -- variable, path, MEX-file, Simulink model, builtin,
+protected function file, folder or class. A name might exist with more than one
+kind, in which case \matlab's documentation specifies a largely arbitrary order
+of evaluation that determines which kind is returned. The function also permits
+a two-argument form, where the second argument is a string specifying which
+kind to check -- either \code{'builtin'}, \code{'class'}, \code{'dir'},
+\code{'file'}, or \code{'var'}.
+
+We find 1177 calls to \code{exist} across 377 benchmarks. Of these, 939 are
+passed a string literal as the first argument, 241 use the one-argument form,
+and 936 use the two-argument form. With the two-argument form, the second
+argument is always a string literal; \code{'var'} in 657 cases, \code{'file'}
+in 220 cases, \code{'dir'} in 51 cases, and \code{'class'} and \code{'builtin'}
+in 4 cases each.
+
+A common pattern is to check for the existence of certain input arguments.
+\matlab allows a function to be called with fewer arguments than are specified
+in the function's parameter list; in this way, some parameters can be made
+optional. We can check for this kind of use by finding calls to \code{'exist'}
+where the first parameter is a string literal whose value is equal to the name
+of one in the input parameters. The relevant query is given in listing
+\lstref{Lst:ExistInputParam}. We find that 481 calls, across 167 benchmarks,
+are of this form, which shouldn't be too hard for an interprocedural analysis
+(assuming we can resolve the call graph difficulty to begin with) to reason
+about statically. It would be possible to rewrite calls of this form to simple
+comparisons against \code{nargin}, a builtin \matlab function that returns the
+number of input parameters passed in to the caller's enclosing function, but
+it's not clear that this would be worthwhile, or easier to deal with in any
+significant way.
+
+\begin{lstlisting}[
+  language=Matlab,
+  caption={\mcbench query that matches calls to exist that check for the
+      existence of input parameters},
+  label=Lst:ExistInputParam,
+  float
+]
+//ParameterizedExpr[is_call('exist') and
+  arg(1)/@value = ancestor::Function/InputParamList/Name/@nameId
+]
+\end{lstlisting}
+
+The \code{who} function can be used to list variables, either in the current
+workspace, a given m-file, or the global scope. The \code{whos} variant behaves
+similarly but also includes information about the sizes and types of each
+variable. These functions turn out not to be as popular, with only 4 calls to
+the former and 23 to the latter.
+
+\subsection{Lookup path modification}
+
+When the \matlab runtime needs to look up a function or script, it searches
+first the current directory the process is executing in, then the \matlab search
+path, a set of directories containing \matlab code. Both of these can be
+modified dynamically at runtime; the \code{cd} function changes the current
+directory, and the \code{path}, \code{addpath} and \code{rmpath} functions can
+be used to modify the search path. Use of these functions can complicate call
+graph construction; the state of the filesystem must be taken into account
+somehow.
+
+The \code{cd} function changes the current directory. It takes a single string
+argument representing the new directory; this can be an absolute or relative
+path, possibly containing symbolic \code{..} or \code{.}, denoting a parent
+directory or a current directory, respectively.
+
+We find 187 calls to \code{cd} across 64 benchmarks.
+% TODO(isbadawi): patterns? Doesn't seem to be any obvious ones.
+
+The \code{addpath} function can be used to insert directories either at the
+start or end of the \matlab search path. It takes a variable number of strings
+as arguments, optionally followed by the string \code{'-begin'} or
+\code{'-end'}, denoting whether to insert the directories at the start or end
+of the path. The default behavior is to add them at the start. It returns the
+old path.
+
+The \code{rmpath} function removes a directory from the search path. It takes a
+single string argument and returns nothing.
+
+The \code{path} function is more powerful; it can be used to add paths to the
+start or end of the search path, but it can also be passed a string array
+representing a list of folders to replace the search path entirely. It returns
+the old path. This function can also be used to read the path, without
+modifying it.
+
+Finally, there also exists a \code{restoredefaultpath} function that discards
+any modifications to the search path, and a \code{savepath} function that
+persists any modifications to the search path to be used by future \matlab
+sessions.
+
+We find 20 calls to \code{addpath} across 16 benchmarks, 4 calls to
+\code{rmpath} across 4 benchmarks, 31 calls to \code{path} across 15 benchmarks
+-- 18 of which use the two-argument form equivalent to \code{addpath}, and 13
+the one-argument form replacing the path. We find no calls to
+\code{restoredefaultpath} or \code{savepath}.
