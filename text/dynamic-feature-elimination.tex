@@ -23,15 +23,17 @@ components of the McLab toolkit. These include
 
 In this chapter, we examine each of these, giving a brief primer on their
 semantics and investigating how frequently they occur, and common patterns in
-their usage. Similar invstigations for other dynamic programming languages have
-shown that in practice, such dynamic features tend to be used in very
-restricted ways which aren't actually difficult to reason about statically
-\cite{TheEvalThatMenDo,ProfileGuidedStaticTyping}, and we find that the same
-holds for \matlab. We then present some approaches towards transforming code
-using these features to equivalent code that is more amenable to static
-analysis.
+their usage. Similar invstigations for other dynamic programming languages such
+as JavaScript \cite{TheEvalThatMenDo} and Ruby \cite{ProfileGuidedStaticTyping}
+have shown that in practice, such dynamic features tend to be used in very
+restricted ways which aren't actually difficult to reason about statically ,
+and we find that the same holds for \matlab. We then present some approaches
+towards transforming code using these features to equivalent code that is more
+amenable to static analysis.
 
 \section{\mcbench}
+
+% TODO mcbench appendix?
 
 The following sections present usage metrics for various dynamic features
 supported by \matlab. These were gathered using \mcbench, a tool that that
@@ -51,7 +53,6 @@ detail in \cite{SoroushThesis}.
   language=Matlab,
   caption={A simple \matlab function...},
   label=Lst:McBenchCode,
-  float
 ]{code/mcbench.m}
 
 \lstinputlisting[
@@ -128,20 +129,37 @@ it is evaluated instead in case of errors. This two-argument form is deprecated
 and undocumented and can almost always be replaced by \matlab's \code{try ...
 catch} exception handling mechanism. Nevertheless, it still enjoys some use.
 
-We start by finding all calls to \code{eval} and variants by writing
-\code{//ParameterizedExpr[is_call('eval')]}. (Here \code{is_call} is a
-\mcbench-specific XPath extension that leverages kind analysis results to
-distinguish function calls from array accesses). This yields 1049 occurrences
-across 202 projects, or 4.93\% of the projects in the corpus. We inspect these
-to try and distinguish different use cases.
+We start by finding all calls to \code{eval} using the query from
+\lstref{Lst:QueryEval}. (Here \code{is_call} is a \mcbench-specific XPath
+extension that leverages kind analysis results to distinguish function calls
+from array accesses). This yields 1049 occurrences across 202 projects, or
+4.93\% of the projects in the corpus. We inspect these to try and distinguish
+different use cases.
+
+\begin{lstlisting}[
+  language=Matlab,
+  caption={\mcbench query that finds calls to \code{eval}},
+  label=Lst:QueryEval,
+  float
+]
+//ParameterizedExpr[is_call('eval')]
+\end{lstlisting}
+
 
 \subsubsection{Manipulating related variables}
 
 The most common pattern is to use \code{eval} to create or manipulate sets of
 related variables by calling it inside a loop, using the loop variable to
-construct its input argument. An example is shown in \lstref{Lst:EvalNoArray}.
-Such code can almost always be refactored to use arrays, cell arrays or
-structures.
+construct its input argument. An example is shown in \lstref{Lst:EvalNoArray};
+here, the effect of the loop is to store values in three arrays, \code{n},
+\code{s2}, and \code{Z}, which are then used later in the code. Rather than
+assigning to elements of these arrays, intermediate variables are created via
+calls to \code{eval}, and the arrays are built up incrementally using array
+concatenation in the last statement of the loop. The many intermediate
+variables created along the way are not referenced again after the loop.
+
+We will call such calls \emph{array-like}; array-like calls to \code{eval} can
+almost always refactored to use arrays, cell arrays or structures.
 
 \lstinputlisting[
   language=Matlab,
@@ -170,6 +188,7 @@ function call, or if the call is of the form \code{eval(s)} where \code{s} was
 previously defined according to our criteria. It may be possible to annotate
 the XML form of the AST with enough semantic information (for instance, UD
 chains) to enable more sophisticated queries.
+
 % TODO(isbadawi): do this? Use ids in the XML to add e.g. uses="12,15,53" on
 % defs, defs="7,9" on name expressions.
 
@@ -227,9 +246,9 @@ array as an additional output argument.
 \mcbench only found twelve calls to \code{evalc}. Of these, five are passed
 string literals. Four ignore the return value, the only feature distinguishing
 \code{evalc} from \code{eval}. In one case the output is captured and
-immediately passed to \code{fprintf}. One legitimate use involves capturing and
-parsing the output of the \matlab built-in \code{dbtype} function, which only
-displays its output instead of returning it.
+immediately passed to \code{fprintf}. The one legitimate use involves capturing
+and parsing the output of the \matlab built-in \code{dbtype} function, which
+only displays its output instead of returning it.
 
 \subsubsection{\code{feval}}
 
@@ -309,6 +328,8 @@ form, and only one uses the regular expression facility. 103 calls use the
 \code{clear all} form. The rest explicitly pass in a sequence of variable names
 to remove.
 
+% TODO(isbadawi): LDVARs pushed to ID, ID might be a function
+
 These results seem slightly implausible, since a very common pattern is for
 \matlab scripts to begin by clearing the workspace. This discrepancy is caused
 by imprecise kind analysis results for scripts \cite{KindAnalysis}. Since
@@ -322,15 +343,15 @@ possible workspaces that a script may execute in, but this would be difficult
 (because for instance, computing a call graph for \matlab is difficult).
 
 Since the difference is significant here, we also consider possible references
-to a variables called \code{clear} occurring inside scripts. The relevant query
-is given in \lstref{Lst:QueryFevalString}. This yields 950 occurrences across
+to variables called \code{clear} occurring inside scripts. The relevant query
+is given in \lstref{Lst:Clear}. This yields 950 occurrences across
 346 benchmarks. Of these, 26 use the no-argument form, and 682 use the
 \code{clear all} form.
 
 \begin{lstlisting}[
   language=Matlab,
   caption={\mcbench query that matches possible calls to clear},
-  label=Lst:QueryFevalString,
+  label=Lst:Clear,
   float
 ]
 //ParameterizedExpr[
@@ -497,4 +518,80 @@ compiler. % TODO(isbadawi): Could cite things here
 % TODO(isbadawi): Numbers -- compare e.g. code using eval to equivalent
 % static code.
 
-\section{Approaches to dynamic feature elimination}
+\section{Eliminating uses of dynamic features}
+
+Before considering any sort of heavy-duty, general approach to eliminating
+uses of dynamic features, we instead exploit the fact that many of these
+adhere to certain patterns.
+
+To start with, we focus our attention on calls to \code{eval}. Consider a call
+site $E$ of the form \code{eval(S)}, where $S$ stands for some \matlab
+expression. Intuitively, if we're able to determine the value that $S$ will
+evaluate to (say, some string $V$), then we can replace $E$ with $V$.
+Mechanically, this is a simple operation to carry out; first parse $V$ using
+our \matlab parser to obtain a fragment $T$ of an AST representing some
+statement or expression, then replace the edge linking $E$ with its parent with
+an edge linking $E$'s parent to $T$.
+
+Of course, determining $V$ statically is likely impossible in general. However,
+as we posit at the start of this chapter, those calls to \code{eval} that would
+be truly hard to reason about statically are relatively rare. Even if we admit
+defeat and restrict ourselves to dealing only with the low-hanging fruit, such
+as calls with constant arguments, or the array-like calls we noticed earlier in
+this chapter, we would still be going a long way towards solving this problem.
+
+\subsection{Array-like calls to \code{eval}}
+
+In the case of array-like calls to \code{eval}, there are really only two
+patterns (with minor variations) that recur much of the time. The first, as
+seen in \lstref{Lst:EvalNoArray}, involves constructing the argument with a
+string concatenation, some of the constituent strings being string
+literals, and others the result of calling \code{num2str} or \code{int2str} on
+the loop variable. The second is similar, but uses \code{sprintf} instead of
+string concatenation; \lstref{Lst:EvalNoArraySprintf} shows the example from
+\lstref{Lst:EvalNoArray} rewritten in this style.
+
+\lstinputlisting[
+  language=Matlab,
+  caption={The example from \lstref{Lst:EvalNoArray}, rewritten to use an
+  alternative array-like \code{eval} pattern.},
+  label=Lst:EvalNoArraySprintf,
+  float
+]{code/loopevalsprintf.m}
+
+In both of these cases, the argument is constructed from a mix of static parts
+and references to the loop variable, and it is easy to tell, just by
+inspection, what the array-based alternative is. Following this premise, a
+straightforward if simplistic algorithm to construct a static replacement
+for such calls might work as follows.
+
+\begin{itemize}
+
+  \item Given a call $C$ to \code{eval} of one of these two forms, construct a
+    template $t$ for the static replacement -- a string with placeholders for
+    references to the loop variable. For example, for a call like
+    \code{eval(['Y' numstr(i) '=Y(Ye,1);'])}, $t$ might be
+    \code{'Y__i__=Y(Ye,1);'}. The mechanics of this step vary for the two
+    patterns, but are straightforward in either case.
+
+  \item $t$ is valid \matlab code -- only with plain identifiers instead
+    of the array accesses -- so we can parse the template to get an AST $T$.
+
+  \item Search $T$ for variable access expressions $e$ where the variable name
+    $v$ contains our placeholders. For each such expression, do the following.
+
+    \begin{itemize}
+
+      \item Extract the placeholders out of $v$ (via e.g. a regular expression)
+        to get a list of loop variables that the variable is parameterized by.
+
+      \item Replace $e$ with a parameterized expression, with an index for each
+        placeholder present in $v$. The target of the expression is the portion
+        of $v$ that remains after stripping the placeholders out -- most often,
+        this is just a prefix of $v$.
+
+    \end{itemize}
+
+  \item Replace $C$ with $T$ in the original AST.
+
+\end{itemize}
