@@ -92,11 +92,11 @@ Very large (100+) & 6 \\ \hline
 \matlab scripts are files containing a sequence of statements (as opposed to
 function definitions). Like functions, scripts can be invoked, executing each
 of their statements in turn; this is done using the same syntax as for function
-calls. Unlike functions, however, scripts don't execute their own workspace (or
-scope); instead, scripts execute directly in their caller's workspace, and thus
-have read and write access to any variables in scope there. Also, scripts don't
-have an explicit parameter-passing mechanism; rather, one can simply ensure all
-the required variables exist in the calling workspace.
+calls. Unlike functions, however, scripts don't execute in their own workspace
+(or scope); instead, scripts execute directly in their caller's workspace, and
+thus have read and write access to any variables in scope there. Also, scripts
+don't have an explicit parameter-passing mechanism; rather, one can simply
+ensure all the required variables exist in the calling workspace.
 
 Within a function, a use of an identifier that isn't declared in the same file
 (either as an input, output, global, persistent, or local variable, or a
@@ -111,7 +111,7 @@ example, a script could contain a break or continue statement, and if that
 script were invoked inside a loop, then those statements would apply to that
 loop.
 
-\section{\code{eval} and variants}
+\section{\code{eval} and variants} \label{sec:Eval}
 
 The \code{eval} function evaluates \matlab code passed to it as a string. This
 code is almost arbitrary, and can have side-effects, such as the creation of
@@ -144,7 +144,7 @@ different use cases.
 \end{lstlisting}
 
 
-\subsection{Manipulating related variables}
+\subsection{Manipulating related variables} \label{sec:ArrayLikeEval}
 
 The most common pattern is to use \code{eval} to create or manipulate sets of
 related variables by calling it inside a loop, using the loop variable to
@@ -286,29 +286,51 @@ manipulating these workspaces via the builtin functions \code{clear},
 
 % TODO(isbadawi): Need more takeaways from here on, not just numbers
 
-\subsection{\code{evalin}}
+\subsection{\code{evalin} and \code{assignin}}
 
 The \code{evalin} function behaves similarly to \code{eval}, but takes an extra
 parameter indicating the workspace in which the evaluation should happen. This
 parameter can be \code{'base'}, indicating the \matlab base workspace, or
 \code{'caller'}, indicating the workspace of the caller function.
-
-We find 169 calls to \code{evalin} across 58 benchmarks. Of these, 124 operate
-on the base workspace, and 43 operate on the caller workspace. (Of the two
-remaining calls, one takes the workspace to operate on as a function parameter,
-and the other seems to contain an error --- the first argument is a reference
-to a variable which isn't defined anywhere.)
-
-\subsection{\code{assignin}}
-
 \code{assignin} is a restricted version of \code{evalin}; rather than support
 arbitrary code execution, the function takes a variable name as a string and a
 value, together with a workspace to operate on --- again either \code{'base'}
 or \code{'caller'} --- and assigns the given value to the given variable in the
 given workspace.
 
-We find 176 calls to \code{assignin} across 52 benchmarks. Of these, 167
-operate on the base workspace, 9 on the caller workspace.
+We find 169 calls to \code{evalin} across 58 benchmarks. Of these, 124 operate
+on the base workspace, and 43 operate on the caller workspace. (Of the two
+remaining calls, one takes the workspace to operate on as a function parameter,
+and the other seems to contain an error --- the first argument is a reference
+to a variable which isn't defined anywhere). For \code{assignin}, we find 176
+calls across 52 benchmarks, 167 operating on the base workspace, and only 9 on
+the caller workspace. We notice among these a few patterns, but no one majority
+case.
+
+\begin{itemize}
+
+  \item Operating on the base workspace is sometimes used in lieu of global
+    variables, or in lieu of explicit function parameters.
+
+  \item Another pattern is that of the "setup function"; a function that
+    creates a few variables in the base or caller workspace, making them
+    available to be used at the \matlab command window.
+
+  \item It seems common for libraries providing programming utilities to
+    operate on the caller's workspace. For instance, a common pattern in
+    \matlab functions is to use the \code{nargin} or \code{exist} builtin
+    functions to tell whether a particular input parameter was passed, and to
+    fall back to a default value if not. One library function encapsulates this
+    logic, using \code{evalin} to carry it out in the caller's workspace given
+    a parameter name and default value. Another library provides a function
+    called \code{keep} as a counterpart to the \code{clear} statement; where
+    \code{clear} removes the given variables from the workspace, \code{keep}
+    removes all but the given variables from the workspace. \code{keep} is
+    implemented by scanning the caller's workspace via \code{evalin}, then
+    constructing an invocation of the \code{clear} statement to be evaluated in
+    the caller's workspace.
+
+\end{itemize}
 
 \subsection{\code{clear} and \code{clearvars}}
 
