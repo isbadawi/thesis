@@ -111,6 +111,10 @@ example, a script could contain a break or continue statement, and if that
 script were invoked inside a loop, then those statements would apply to that
 loop.
 
+% TODO(isbadawi): Numbers are off for functions that take no arguments.
+% We run queries like //ParameterizedExpr[is_call('...')] but need also
+% NameExpr...
+
 \section{\code{eval} and variants} \label{sec:Eval}
 
 The \code{eval} function evaluates \matlab code passed to it as a string. This
@@ -454,10 +458,21 @@ somehow.
 
 The \code{cd} function changes the current directory. It takes a single string
 argument representing the new directory; this can be an absolute or relative
-path, possibly containing symbolic \code{..} or \code{.}, denoting a parent
-directory or a current directory, respectively.
+path, possibly containing symbolic \code{..} or \code{.} notation, denoting a
+parent directory or a current directory, respectively. \code{cd} can also be
+invoked without arguments. If the call site includes an output argument, then
+\code{cd} returns the absolute path to the present working directory as a
+string. If not, it writes the path to standard output.
 
-We find 187 calls to \code{cd} across 64 benchmarks.
+We find 187 calls to \code{cd} across 64 benchmarks. Most often, \code{cd} is
+used to get at data that the program depends on; the working directory is
+changed to a data folder, and functions such as \code{load} or \code{textread}
+are then used to read in the data, passing in only the file name, without any
+leading directory names. In many cases, \code{cd} is called again immediately
+after loading the data, so as to restore the original working directory. Rather
+than carrying out this sort of dance, it would be preferable to load the
+required data using a path relative to the starting working directory. This
+problem is explored in more detail in \chapref{chap:DynamicFeatureElimination}.
 
 The \code{addpath} function can be used to insert directories either at the
 start or end of the \matlab search path. It takes a variable number of strings

@@ -48,7 +48,9 @@ calls to the \code{eval} family of functions in a loop in lieu of using arrays.
 The code in \lstref{Lst:EvalNoArray} calls \code{eval}, invoking the full
 machinery of the interpreter, no fewer than eight times per loop iteration,
 even though each of these could be replaced by two or three array operations.
-Intuitively, we'd expect this to have a huge negative impact on performance.
+This has a huge impact on performance. As a preliminary test, we manually
+replaced each call to \code{eval} in that benchmark with equivalent code using
+arrays. The transformed benchmark achieved a 56x speedup over the original.
 
 Beyond interpreter overhead, code that restricts itself to features that are
 easier to reason about statically is apt to be better understood by compilers,
@@ -56,9 +58,6 @@ which rely on sophisticated static analysis to identify candidates for
 optimization. This is not irrelevant; several \matlab compilers exist, and
 recent versions of the proprietary \matlab implementation include a JIT
 compiler. % TODO(isbadawi): Could cite things here
-
-% TODO(isbadawi): Numbers -- compare e.g. code using eval to equivalent
-% static code.
 
 \section{Eliminating uses of dynamic features}
 
@@ -139,16 +138,18 @@ a static replacement for such calls might work as follows.
           variable corresponding to the placeholder. (We assume in this case
           there is only one placeholder).
 
-        \item If $p$ is not empty, replace $e$ with a parameterized expression that
-          has $p$ as the target, and an index for each placeholder present in
-          $v$.
+        \item If $p$ is not empty, replace $e$ with a cell array index
+          expression that has $p$ as the target, and an index for each
+          placeholder present in $v$.
 
           As an edge case, it's possible that $p$ might already be used as a
-          variable name; this happens in \lstref{Lst:EvalNoArray}, for instance,
-          where \code{Y} is used as an array, and the first call to \code{eval}
-          creates variables \code{Y1}, \code{Y2}, and so on. Any scheme to ensure
-          $p$ is unique will do; arbitrarily, we append underscores to $p$ until
-          it does not conflict with other variables.
+          variable name; this happens in \lstref{Lst:EvalNoArray}, for
+          instance, where \code{Y} is used as an array, and the first call to
+          \code{eval} creates variables \code{Y1}, \code{Y2}, and so on. Any
+          scheme to ensure $p$ is unique will do; arbitrarily, we append
+          underscores to $p$ until it does not conflict with other variables
+          (and make sure to reuse the same name for later uses of that variable
+          in other template strings).
 
       \end{itemize}
 
@@ -157,6 +158,14 @@ a static replacement for such calls might work as follows.
   \item Replace $C$ with $T$ in the original AST.
 
 \end{itemize}
+
+We use cell arrays and not matrices because we don't know a priori whether an
+expression will evaluate to a scalar value -- if it doesn't, then assigning it
+to a matrix at a scalar index will raise a runtime error. Thus cell arrays are
+a safe choice, performance considerations notwithstanding. Eliminating the call
+to \code{eval} is a much bigger performance win in any case. If needed, a later
+optimization could try and determine which cell arrays in a given program are
+only assigned scalar values, and replace those with matrices.
 
 \subsubsection{Caveats}
 
