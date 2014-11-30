@@ -174,9 +174,11 @@ Inside a given loop, array-like calls are apt to depend on the variables
 defined by earlier array-like calls in the same loop. If we're not able to
 eliminate one of these calls, for instance because it doesn't match our
 patterns exactly, then it likely isn't safe to eliminate any of the calls in
-the loop. We should therefore consider this an operation on loops, not function
-calls. If we're not able to transform every array-like call inside a loop, then
-we abort without making any changes.
+the loop. Some of the benchmarks also have multiple such loops, with array-like
+calls in later loops depending on variables created in earlier loops. To simplify
+things, we consider this an operation on entire m-files, rather than an
+operation on individual calls. If we're not able to eliminate every array-like
+call in a file, then we abort without making any changes.
 
 More generally, array-like calls to \code{eval} create many variables, which
 are then unified into array variables in the transformed code. If code after
