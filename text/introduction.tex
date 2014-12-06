@@ -1,0 +1,105 @@
+\matlab is a popular dynamic programming language used for scientific and
+numerical programming. It has a very large (and growing) user base, especially
+in education, research and engineering applications. A key aspect contributing
+to the language's appeal is its accessibility; features like a read-eval-print
+loop, dynamic typing, compact and familiar syntax for manipulating arrays and
+matrices, easy plotting, access to efficient libraries for many problem domains
+and extensive online documentation make \matlab a good language for
+prototyping.
+
+Despite all this, \matlab has its warts. Initially conceived as a simple way
+for students to use \fortran linear algebra libraries without having to learn
+\fortran, the language has grown in complexity over the years, with more and
+more features bolted on. And with only a black box proprietary reference
+implementation in lieu of any sort of language specification, the semantics of
+the language can often be inscrutable, particularly around edge cases.
+\matlab's aforementioned accessibility is also a double-edged sword, as the
+typical \matlab programmer is apt not to have much of a background in computer
+science or professional software development, so that large swaths of \matlab
+code available online, either in the form of example code or libraries, are not
+of a very high quality.
+
+This thesis reports on the design and implementation of McIDE, an integrated
+development environment implemented on top of infrastructure provided by the
+\mclab compiler toolkit. In addition to providing many traditional IDE features
+such as easy code navigation and support for refactorings, McIDE also aims to
+improve the state of \matlab code in the wild, be it in terms of performance,
+complexity, or amenableness to static analysis, by recognizing common
+anti-patterns in \matlab code and warning about them, or automatically
+eliminating them in some cases.
+
+\section{Contributions}
+
+The major contributions of this thesis are as follows.
+
+\begin{description}
+
+\item[A mechanism for computing a dynamic call graph of \matlab code:] Many
+traditional code navigation features provided by IDEs, such as "jump to
+declaration" or "find callers", rely on call graph information. However,
+\matlab's semantics make it difficult to statically compute a program's call
+graph. We present a dynamic profiling approach to measure a \matlab program's
+call graph, and describe a few optimizations we implemented to reduce the
+overhead of the instrumentation required for the profiling.
+
+\item[A technique for carrying out layout preserving code transformations:] One
+of the most useful features commonly provided by IDEs is automated refactoring
+support. The most natural and straightforward way to implement a refactoring is
+as a tree transformation on a program's abstract syntax tree. However, such
+transformations are lossy, as the textual layout of the source code, including
+comments, indentation and other whitespace, are lost in the process. We report
+on the design and implementation of a library which enables arbitrary source
+code transformations to be specified at the AST level, while the underlying
+machinery transparently takes care of preserving the layout of the affected
+text.
+
+\item[A study of the usage \matlab's dynamic features in the wild:] \matlab
+supports many highly dynamic features, such as the \code{eval} family of
+functions, which complicate static analysis, harm performance, and often make
+code harder to reason about. We describe the semantics of these features in
+detail, and report the results of a study of a large corpus of \matlab code,
+investigating the usage patterns of these features.
+
+\item[Techniques for eliminating dynamic features:] Exploiting the findings of
+the aforementioned study, we present a few techniques for automatically
+transforming code away from using these features in some common cases.
+
+\item[An open implementation:] McIDE is developed fully in the open, on top of
+the open source \mclab compiler toolkit for \matlab. Some of the reusable
+infrastructure pieces, such as the layout preserving transformation engine, are
+implemented directly as part of the toolkit, while the IDE itself is available
+as an separate open source project
+\footnote{\url{http://www.sable.mcgill.ca/mclab/projects/mcide/}}.
+
+\end{description}
+
+\section{Thesis outline}
+
+The rest of the thesis is structured as follows.
+\chapref{chap:BackgroundAndOverview} provides some necessary background
+information and describes the overall structure of our IDE. The next five
+chapters comprise four relatively independent deep dives into its different
+components.
+
+\begin{itemize}
+
+\item \chapref{chap:DynamicCallGraphConstruction} explains our approach to
+computing a dynamic call graph for \matlab programs, which is used to power the
+IDE's code navigation features.
+
+\item \chapref{chap:LayoutPreservingRefactorings} describes our layout
+preserving program transformation library, which is used to implement the
+mechanics of the refactoring transformations supported by McIDE.
+
+\item \chapref{chap:DynamicFeatureSurvey} presents our investigation into the
+usage of \matlab's dynamic features, and
+\chapref{chap:DynamicFeatureElimination} follows up with techniques to
+automatically eliminate uses of these features where simpler alternatives
+exist.
+
+\item TODO
+
+\end{itemize}
+
+Finally, \chapref{chap:Conclusions} concludes the thesis and describes some
+opportunities for future work.
