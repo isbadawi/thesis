@@ -9,8 +9,9 @@ prototyping.
 
 Despite all this, \matlab has its warts. Initially conceived as a simple way
 for students to use \fortran linear algebra libraries without having to learn
-\fortran, the language has grown in complexity over the years, with more and
-more features bolted on. And with only a black box proprietary reference
+\fortran\footnote{\url{www.mathworks.com/company/newsletters/articles/the-origins-of-matlab.html}},
+the language has grown in complexity over the years, with more and more
+features bolted on. And with only a black box proprietary reference
 implementation in lieu of any sort of language specification, the semantics of
 the language can often be inscrutable, particularly around edge cases.
 \matlab's aforementioned accessibility is also a double-edged sword, as the
@@ -39,7 +40,7 @@ traditional code navigation features provided by IDEs, such as "jump to
 declaration" or "find callers", rely on call graph information. However,
 \matlab's semantics make it difficult to statically compute a program's call
 graph. We present a dynamic profiling approach to measure a \matlab program's
-call graph, and describe a few optimizations we implemented to reduce the
+call graph, and describe some optimizations we implemented to reduce the
 overhead of the instrumentation required for the profiling.
 
 \item[A technique for carrying out layout preserving code transformations:] One
@@ -61,15 +62,15 @@ detail, and report the results of a study of a large corpus of \matlab code,
 investigating the usage patterns of these features.
 
 \item[Techniques for eliminating dynamic features:] Exploiting the findings of
-the aforementioned study, we present a few techniques for automatically
+the aforementioned study, we present some techniques for automatically
 transforming code away from using these features in some common cases.
 
 \item[An open implementation:] McIDE is developed fully in the open, on top of
-the open source \mclab compiler toolkit for \matlab. Some of the reusable
-infrastructure pieces, such as the layout preserving transformation engine, are
-implemented directly as part of the toolkit, while the IDE itself is available
-as an separate open source project
-\footnote{\url{http://www.sable.mcgill.ca/mclab/projects/mcide/}}.
+  the open source \mclab compiler toolkit for \matlab. Some of the reusable
+  infrastructure pieces, such as the layout preserving transformation engine,
+  are implemented directly as part of the toolkit, while the IDE itself is
+  available as a separate open source
+  project\footnote{\url{www.sable.mcgill.ca/mclab/projects/mcide/}}.
 
 \end{description}
 
