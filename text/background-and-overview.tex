@@ -1,0 +1,81 @@
+\section{\mclab toolkit}
+
+\section{Overall design}
+
+McIDE wires together many independent components into a coherent whole. While
+it runs locally on the user's computer, its interface is browser-based, and
+largely centered around an instance of the Ace
+editor\footnote{\url{http://ace.c9.io/}}, a well-known open source embeddable
+text editor component. This browser-based interface contains almost no
+important logic; instead, it reacts to user actions by sending HTTP requests to
+a server process, which then dispatches the work to different components, which
+are typically implemented as thin shell scripts wrapping functionality provided
+by the \mclab toolkit. A few different components are implemented in this way.
+
+\subsection{Syntax checking and static analysis}
+
+One of McIDE's basic features is on-the-fly syntax checking. As the user types,
+the contents of the editor are periodically sent off to the server as a "parse"
+request. Upon receiving this request, the server forks off the \mclab toolkit's
+\matlab parser as a separate process and monitors its standard output and
+standard error streams, ultimately returning to the frontend a (possibly empty)
+list of syntax errors, each with associated line and column location
+information, to be overlaid in the margins of the editor. If the parsing is
+successful, the process also runs some simple static analyses, for instance
+checking for uses of undeclared variables. These generate warnings, which can
+similarly be overlaid in the margins.
+
+\subsection{Refactoring}
+
+McIDE supports many automated refactorings, such as Extract Function or Inline
+Variable. A refactoring can be viewed as a function taking as input some code
+and a user selection (e.g. a highlighted region) and returning either the
+transformed code or an error. This fits nicely into our model -- like the
+parser, the refactorings are implemented as external tools, and interacted with
+via standard output and error streams. In particular, the user makes a
+selection and selects a refactoring from a menu, and the frontend sends the
+project path, the selection, and the choice of refactoring off to the server as
+a "refactor" request. (It sends project paths rather than sending the code
+directly in case the refactoring affects multiple files). This request is
+dispatched to the appropriate refactoring tool, which responds either with a
+list of errors, or with a mapping from affected file names to new contents.
+
+Beyond the big picture communication here, the actual mechanics of carrying out
+these refactorings are explored more deeply in
+\chapref{chap:LayoutPreservingRefactorings}.
+
+\subsection{\matlab shell}
+
+McIDE features a \matlab shell, which is implemented by interacting directly
+with a running \matlab or Octave instance. The actual communication is largely
+implemented by an external library, which works by spawning off a server
+written in \matlab, and sending code to it via TCP sockets. The server executes
+the given code via \code{eval}, and responds with a message including any
+output (including paths to figures, which are transparently saved to the
+filesystem) or errors produced by the execution.
+
+When the user starts working on a project, such a \matlab server is initialized
+in the background, and a simple command prompt is presented to the user
+alongside the editor. Any commands entered are sent off to the dispatching
+server as a "shell command" request, which forwards them along to the \matlab
+server, and returns the results back to the frontend, which can display output
+and error messages in its shell, and open new browser windows or tabs to
+display figures.
+
+\subsection{Profiling}
+
+A big theme of McIDE's implementation is the reliance on runtime information,
+since precise static information is often difficult to come by if we wish to
+handle arbitrary \matlab code. A few different components, such as the call
+graph generator described in \chapref{chap:DynamicCallGraphConstruction}, work
+by executing instrumented versions of the project code.
+
+When a project is created or imported, McIDE automatically creates a special
+file called \code{mcide_entry_point.m}, in which the user is asked to implement
+a function that exercises as much of the project's code as possible.
+Periodically, and also in response to certain user actions, a profiling run is
+triggered, in the form of a "profile" request sent off to the server. In
+response, an instrumented version of the project is created via a
+source-to-source transformation, and the entry point function is invoked to
+gather various bits of information, including call targets, variable types, and
+more.
