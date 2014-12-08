@@ -76,6 +76,6 @@ a function that exercises as much of the project's code as possible.
 Periodically, and also in response to certain user actions, a profiling run is
 triggered, in the form of a "profile" request sent off to the server. In
 response, an instrumented version of the project is created via a
-source-to-source transformation, and the entry point function is invoked to
-gather various bits of information, including call targets, variable types, and
-more.
+source-to-source transformation, and the entry point function is invoked (via
+the same mechanism used to implement the \matlab shell) to gather various bits
+of information, including call targets, variable types, and more.
