@@ -80,6 +80,37 @@ server, and returns the results back to the frontend, which can display output
 and error messages in its shell, and open new browser windows or tabs to
 display figures.
 
+McIDE also interacts with the \matlab server behind the scenes to provide some
+convenient features.
+
+\begin{itemize}
+
+\item When a function is called, \matlab loads the function's code from the
+filesystem and caches the function. This cache is refreshed each time the
+command prompt is shown, so that if a function is modified, \matlab will notice
+that the last modified timestamp has changed and reload the function. Due to
+the nature of our communication with the \matlab server, this refresh mechanism
+doesn't happen. For situations like these, \matlab provides the \code{rehash}
+builtin function to force the caches to be refreshed. McIDE therefore prepends
+a call to \code{rehash} to every command entered by the user before sending it
+off.
+
+\item After each command entered by the user, McIDE appends a call to the
+\code{save} \matlab builtin function in order to store the state of the
+interpreter session to a hidden file associated with the project. When the same
+project is loaded later, this session file is loaded via the builtin
+\code{load} function, so that all the variables are preserved. A nice bonus is
+that the format of the files produced by \code{save} and loaded by \code{load}
+are compatible across \matlab and Octave, so the backend can be changed in the
+settings menu without losing any active sessions.
+
+\item The proprietary \matlab implementation provides a workspace browser -- a
+graphical window allowing the user to view (and modify) all the variables in
+the current workspace. To replicate this functionality, McIDE makes use of the
+\matlab builtin function \code{whos}, which lists all the variables in scope.
+
+\end{itemize}
+
 \subsection{Profiling}
 
 A big theme of McIDE's implementation is the reliance on runtime information,
