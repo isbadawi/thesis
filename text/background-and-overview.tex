@@ -1,5 +1,23 @@
 \section{\mclab toolkit}
 
+\section{Potential challenges}
+
+The challenges faced in implementing McIDE stem largely from our desire to
+support the development of arbitrary \matlab code. While the \mclab toolkit
+provides a lot of useful infrastructure, including a working \matlab parser (a
+nontrivial accomplishment) and static analysis framework, a lot of prior work
+was motivated by the ultimate goal of compiling \matlab to a static language
+such as \fortran or X10. In this context, it was considered acceptable to
+simply carve out a reasonable subset of \matlab code and rule out any code
+considered too dynamic or "wild" to map cleanly onto static semantics. The more
+sophisticated static analyses provided by the \mclab toolkit, which include
+type and shape inference as well as call graph construction, all rely on the
+assumption that the features of \matlab that are difficult to handle simply
+don't occur -- an assumption that doesn't hold for us. A related issue is that
+since we wish to manipulate and reason about \matlab source code, we find
+ourselves working directly with high-level ASTs, eschewing simplifications or
+lower-level IRs.
+
 \section{Overall design}
 
 McIDE wires together many independent components into a coherent whole. While
