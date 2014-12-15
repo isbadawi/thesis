@@ -20,41 +20,66 @@ lower-level IRs.
 
 \section{Overall design}
 
+% TODO(isbadawi): end-to-end figure
+
 McIDE wires together many independent components into a coherent whole. While
 it runs locally on the user's computer, its interface is browser-based, and
 largely centered around an instance of the Ace
 editor\footnote{\url{http://ace.c9.io/}}, a well-known open source embeddable
 text editor component. This browser-based interface contains almost no
 important logic; instead, it reacts to user actions by sending HTTP requests to
-a server process, which then dispatches the work to different components, which
-are typically implemented as thin shell scripts wrapping functionality provided
-by the \mclab toolkit. A few different components are implemented in this way.
+a server process, which then dispatches the work to the appropriate component.
+These components, such as the parser, static analyzers, automated refactorers,
+and so on, are all implemented as separate standalone tools, which simply
+accept input and produce output. The dispatcher orchestrates these components,
+typically by spawning them as child processes and monitoring their standard
+output and error streams (shelling out to them, in Unix parlance), although
+other means of interprocess communication would also work. This can be seen as
+a kind of service-oriented architecture.
+
+There are several advantages to structuring McIDE in this way. For one thing,
+it removes the need to grapple with a large monolithic codebase. The different
+components can be developed and maintained in isolation, and also reused in
+different ways, for example as command line utilities, or as text editor
+plugins. Arbitrary, pre-existing components can also be integrated into McIDE,
+with only a little effort required to wrap them in a suitable interface. For
+example, various bits of functionality, such as the parser, are provided by
+pre-existing components of the \mclab toolkit, and exposed to McIDE via simple
+shell script wrappers.
+
+The browser-based interface is harder to justify. It is not really a given that
+implementing the interface using HTML and JavaScript is preferable to writing a
+traditional native desktop application using one of the popular cross-platform
+UI toolkits. The main reason is that a natural next step is to generalize McIDE
+to be proper web application -- a "cloud" IDE, accessible over the Internet --
+and that less engineering effort would be required to port it to that setting.
+The client-server separation also enforces in some sense that the interface
+logic be decoupled from the domain logic.
+
+The remainder of this section shows some specific examples of how different
+components are integrated at a high-level, and the chapter concludes with a
+more specific end-to-end example.
 
 \subsection{Syntax checking and static analysis}
 
 One of McIDE's basic features is on-the-fly syntax checking. As the user types,
 the contents of the editor are periodically sent off to the server as a "parse"
-request. Upon receiving this request, the server forks off the \mclab toolkit's
-\matlab parser as a separate process and monitors its standard output and
-standard error streams, ultimately returning to the frontend a (possibly empty)
-list of syntax errors, each with associated line and column location
-information, to be overlaid in the margins of the editor. If the parsing is
-successful, the process also runs some simple static analyses, for instance
-checking for uses of undeclared variables. These generate warnings, which can
-similarly be overlaid in the margins.
+request. Upon receiving this request, the server spawns the \mclab toolkit's
+\matlab parser, ultimately returning to the frontend either a serialized AST
+which can be used as input to other components, or a list of syntax errors,
+each with associated line and column location information, to be overlaid in
+the margins of the editor.
 
 \subsection{Refactoring}
 
 McIDE supports many automated refactorings, such as Extract Function or Inline
 Variable. A refactoring can be viewed as a function taking as input some code
 and a user selection (e.g. a highlighted region) and returning either the
-transformed code or an error. This fits nicely into our model -- like the
-parser, the refactorings are implemented as external tools, and interacted with
-via standard output and error streams. In particular, the user makes a
-selection and selects a refactoring from a menu, and the frontend sends the
-project path, the selection, and the choice of refactoring off to the server as
-a "refactor" request. (It sends project paths rather than sending the code
-directly in case the refactoring affects multiple files). This request is
+transformed code or an error. This fits nicely into our model. When the user
+selects some code and selects a refactoring action from a menu, the frontend
+sends the project path, the selection, and the choice of refactoring off to the
+server as a "refactor" request. (It sends project paths rather than sending the
+code directly in case the refactoring affects multiple files). This request is
 dispatched to the appropriate refactoring tool, which responds either with a
 list of errors, or with a mapping from affected file names to new contents.
 
@@ -67,21 +92,20 @@ these refactorings are explored more deeply in
 McIDE features a \matlab shell, which is implemented by interacting directly
 with a running \matlab or Octave instance. The actual communication is largely
 implemented by an external library, which works by spawning off a server
-written in \matlab, and sending code to it via TCP sockets. The server executes
-the given code via \code{eval}, and responds with a message including any
-output (including paths to figures, which are transparently saved to the
+written in \matlab, and sending code to it over a message queue. The server
+executes the given code via \code{eval}, and responds with a message including
+any output (including paths to figures, which are transparently saved to the
 filesystem) or errors produced by the execution.
 
 When the user starts working on a project, such a \matlab server is initialized
-in the background, and a simple command prompt is presented to the user
-alongside the editor. Any commands entered are sent off to the dispatching
-server as a "shell command" request, which forwards them along to the \matlab
-server, and returns the results back to the frontend, which can display output
-and error messages in its shell, and open new browser windows or tabs to
-display figures.
+in the background, and a command prompt is presented to the user alongside the
+editor. Any commands entered are sent off to the dispatching server as a "shell
+command" request, which forwards them along to the \matlab server, and returns
+the results back to the frontend, which can display output and error messages
+in its shell, and open new browser windows or tabs to display figures.
 
-McIDE also interacts with the \matlab server behind the scenes to provide some
-convenient features.
+McIDE also interacts with the \matlab server behind the scenes for various
+reasons.
 
 \begin{itemize}
 
@@ -104,7 +128,7 @@ that the format of the files produced by \code{save} and loaded by \code{load}
 are compatible across \matlab and Octave, so the backend can be changed in the
 settings menu without losing any active sessions.
 
-\item The proprietary \matlab implementation provides a workspace browser -- a
+\item The proprietary \matlab implementation provides a workspace browser, a
 graphical window allowing the user to view (and modify) all the variables in
 the current workspace. To replicate this functionality, McIDE makes use of the
 \matlab builtin function \code{whos}, which lists all the variables in scope.
