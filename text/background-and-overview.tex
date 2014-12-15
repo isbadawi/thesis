@@ -20,8 +20,6 @@ lower-level IRs.
 
 \section{Overall design}
 
-% TODO(isbadawi): end-to-end figure
-
 McIDE wires together many independent components into a coherent whole. While
 it runs locally on the user's computer, its interface is browser-based, and
 largely centered around an instance of the Ace
@@ -57,8 +55,7 @@ The client-server separation also enforces in some sense that the interface
 logic be decoupled from the domain logic.
 
 The remainder of this section shows some specific examples of how different
-components are integrated at a high-level, and the chapter concludes with a
-more specific end-to-end example.
+components are integrated at a high-level.
 
 \subsection{Syntax checking and static analysis}
 
@@ -69,6 +66,23 @@ request. Upon receiving this request, the server spawns the \mclab toolkit's
 which can be used as input to other components, or a list of syntax errors,
 each with associated line and column location information, to be overlaid in
 the margins of the editor.
+
+This workflow is sketched out in \figref{fig:ParserWorkflow}. At the top, the
+user has just finished typing in some code. The client sends an HTTP request to
+the server with the code as the request body. The server calls the parser
+wrapper script, passing in the name of a temporary file containing the code.
+The script prints some errors on standard output, and the server uses these to
+build a JSON response that it returns to the client, which uses it to display
+an error marker at the offending line, with the error messages displayed on
+mouse over.
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{figures/parserworkflow.eps}
+\caption{Example of the communication involved to implement on-the-fly syntax
+checking.}
+\label{fig:ParserWorkflow}
+\end{figure}
 
 \subsection{Refactoring}
 
