@@ -97,6 +97,23 @@ code directly in case the refactoring affects multiple files). This request is
 dispatched to the appropriate refactoring tool, which responds either with a
 list of errors, or with a mapping from affected file names to new contents.
 
+This workflow is sketched out in \figref{fig:RefactorWorkflow}. The user has
+highlighted an assignment statement and selected the "Inline Variable" action
+from the context menu. The client sends an HTTP request to the server with the
+choice of refactoring, the active file, and the selection (using a format like
+\code{<start-line>,<start-column>-<end-line>,<end-column>}). The server
+forwards the request to the inline variable tool. In this case, the wrapper
+script happens to write a response of the appropriate format to standard
+output, so the server just forwards it along back to the client, which updates
+the state of the editor to reflect the changes.
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{figures/refactorworkflow.eps}
+\caption{Example of the communication involved to implement refactorings.}
+\label{fig:RefactorWorkflow}
+\end{figure}
+
 Beyond the big picture communication here, the actual mechanics of carrying out
 these refactorings are explored more deeply in
 \chapref{chap:LayoutPreservingRefactorings}.
@@ -148,6 +165,25 @@ the current workspace. To replicate this functionality, McIDE makes use of the
 \matlab builtin function \code{whos}, which lists all the variables in scope.
 
 \end{itemize}
+
+The overall workflow is sketched out in \figref{fig:ShellWorkflow}. The user
+types in a call to the function \code{test}, which is the one being edited, and
+presses the return key. The client sends an HTTP request to the server with the
+code to run. The server wraps the user's code with some code of its own as
+described above, and sends the execution request to an instance of the \matlab
+server, which has been pre-initialized to execute in the project's workspace.
+The \matlab server responds with information about whether the code triggered
+any errors (here the request was successful), what the output was (here "2"
+surrounded by some whitespace), and whether there were any figures (not in this
+case). The server sends this response back to the client, which displays the
+result of the command in the shell.
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{figures/shellworkflow.eps}
+\caption{Example of the communication involved to implement the \matlab shell.}
+\label{fig:ShellWorkflow}
+\end{figure}
 
 \subsection{Profiling}
 
