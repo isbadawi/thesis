@@ -860,17 +860,16 @@ If both versions are the same, then there's nothing to do. Otherwise, we
 replace the body of the function with an if statement, with $S$ as the then
 branch, and $F$ as the else branch. The condition checks at runtime, for each
 input parameter $p$ with at least one use instrumented in $S$, whether $p$
-is a function handle (use the \matlab builtin function \code{isa}).
+is a function handle (using the \matlab builtin function \code{isa}).
 
 The "+ Checks" column in \tableref{tab:InstrumentationBenchmarksInstrumentable}
-\tableref{tab:InstrumentationResults} shows how many expressions remain
-instrumented along the fast path where the check reveals there are actually no
-handles, and the corresponding columns in \tableref{tab:InstrumentationResults}
-shows the performance of the instrumented code with these and all previous
-enhancements applied. For our more typical \matlab benchmarks that are heavy on
-array operations, this drastically reduces the overhead. For the benchmarks
-that do use function handles, the effect on performance is predictably
-negligible.
+shows how many expressions remain instrumented along the fast path where the
+check reveals there are actually no handles, and the corresponding columns in
+\tableref{tab:InstrumentationResults} shows the performance of the instrumented
+code with these and all previous enhancements applied. For our more typical
+\matlab benchmarks that are heavy on array operations, this drastically reduces
+the overhead. For the benchmarks that do use function handles, the effect on
+performance is predictably negligible.
 
 \subsection{Optimized runtime functions}
 
