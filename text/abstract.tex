@@ -1,0 +1,24 @@
+{\sc Matlab}\textsuperscript{\textregistered} is a popular dynamic scientific
+programming language. The typical \matlab user is not a software professional;
+it is chiefly used among scientists, engineers, and students, and enjoys wide
+adoption in large part because of its high level syntax and wide array of
+libraries for many problem domains in the sciences. The inexperience of many
+\matlab programmers, coupled with the ill-specified and often counterintuitive
+semantics of the language, leads to \matlab code in the wild that is difficult
+to understand and maintain.
+
+In this thesis, we present McIDE, an integrated development environment for
+\matlab programming. McIDE provides tools to help \matlab programmers write
+better programs, among them automated refactorings and code navigation features
+like "jump to definition". It is also opinionated about \matlab code, and tries
+to recognize common anti-patterns and either warn about or eliminate them.
+
+McIDE is built up of several largely independent components wired together by a
+thin graphical interface. Some of these components are pre-existing, such a
+\matlab parser provided by the \mclab compiler toolkit, and others are
+contributions of this thesis, such as a dynamic call graph collection mechanism
+for \matlab code, and a layout-preserving code transformation engine.
+
+A theme of McIDE's implementation is reliance on runtime information, since
+purely static information is often insufficient if we wish to support the
+development of arbitrary \matlab code, including its more dynamic features.
