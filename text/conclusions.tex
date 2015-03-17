@@ -1,0 +1,52 @@
+This thesis introduced McIDE, a \matlab IDE powered by the \mclab compiler
+toolkit, and with a focus on powering features through exploiting runtime
+information rather than relying solely on static analysis. We provided an
+overview of McIDE's design, which consists of largely independent components
+wired together through a thin browser-based graphical interface. We described
+our dynamic call graph collection mechanism, and the analyses and optimizations
+we implemented to minimize the performance overhead of the instrumented code.
+We presented a technique for performing code transformations in a
+layout-preserving fashion, which allows McIDE to provide some usable automated
+refactorings out of the box, and future refactoring implementers to reuse the
+transformation infrastructure to do the same. Finally, we described \matlab's
+dynamic features in detail and presented a study of their usage in the wild,
+later exploiting some of our findings to automatically eliminate their uses
+where possible.
+
+\section{Future Work}
+
+We present here some ideas for possible further work for the continued
+development of McIDE. The common thread is finding more useful ways to exploit
+runtime information.
+
+\begin{description}
+
+\item[Dynamic code visualizations] IDEs are in a position to provide alternate
+perspectives on the code beyond the traditional file explorer view, and runtime
+information could be particularly useful in this setting.
+
+As low hanging fruit, the call graph information described in this thesis could
+be used to show execution stack traces as a tree and enable jumping directly to
+any function invoked along the way.
+
+Relevant runtime information could be overlaid onto source code in order to aid
+program understanding -- expressions could be annotated with runtime types (or
+even values), perhaps via tooltips or comments introduced into the code if
+requested; lines of code could be annotated with timing information, for
+instance by coloring bottlenecks differently as to make them stand out; the
+profiling machinery could work backwards from errors in the execution to
+highlight the problematic code paths.
+
+\item[More sophisticated dynamic or blended analyses] We restricted ourselves
+to uses of dynamic features in this thesis, but there is apt to be many more
+ways in which \matlab code in the wild can be automatically improved.
+
+\item[Better integration with \mclab static backends] The dynamic feature
+elimination techniques presented in \chapref{chap:DynamicFeatureElimination}
+make the code more amenable to static analysis, and thus more suitable as input
+to static backends of the \mclab toolkit, which operate on the \matlab subset
+supported by the \matlab Tamer, which rules out features like \code{eval}. If
+static compilation is a goal for the user, then more work is this vein could
+help compatibility along.
+
+\end{description}
