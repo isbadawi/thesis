@@ -500,3 +500,19 @@ We find 20 calls to \code{addpath} across 16 benchmarks, 4 calls to
 -- 18 of which use the two-argument form equivalent to \code{addpath}, and 13
 the one-argument form replacing the path. We find no calls to
 \code{restoredefaultpath} or \code{savepath}.
+
+\section{Related work}
+
+This study is inspired in part by Furr et al.'s work on profile-guided static
+typing for Ruby \cite{ProfileGuidedStaticTyping}, where one of the major
+insights was that although highly dynamic semantics can theoretically lead to
+code which is hard to reason about, dynamic features tend to be used is much
+more restricted ways in practice. Similar studies done for JavaScript by
+Ratanaworabhan et al. \cite{JSMeter} and Richards et al.
+\cite{TheEvalThatMenDo,DynamicBehaviorJavaScript} have reached similar
+conclusions. Because JavaScript is so ubiquitous on the web, one can instrument
+a web browser and visit popular web pages to obtain all sorts of dynamic
+metrics. The same is unfortunately not true in our case; although we have easy
+access to a large body of \matlab code, it is not trivial in general to
+determine how to execute it, which is why we had to restrict ourselves to
+static metrics.
