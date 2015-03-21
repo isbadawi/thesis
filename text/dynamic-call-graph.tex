@@ -912,6 +912,26 @@ performance of the instrumented code with these enhancements applied.
 
 \section{Related work}
 
-Ali and Lhot\'{a}k's work on application-only call graph construction
-\cite{ApplicationOnlyCallGraphConstruction} inspired our handling of builtin
-functions.
+Seeking to work around the difficulties posed by JavaScript's dynamic features,
+Wei and Ryder \cite{TaintAnalysisForJavaScript} present a blended static and
+dynamic analysis framework. The idea is to use an instrumented JavaScript
+engine to execute tests covering the code we wish to analyze (the existence of
+tests with sufficient coverage is assumed); this "dynamic phase" collects
+information like the dynamic calling structure of the program, the types of
+created objects, and any code that is dynamically loaded. A "static phase" then
+uses the collected execution traces to build a call graph and guide static
+analysis. This hybrid approach was found to have better performance and
+accuracy than purely static approaches on selected benchmarks.
+
+Motivated by the same problem of powering code navigation features in an IDE
+setting, Feldthaus et al. present a static field-based flow analysis for
+JavaScript \cite{ApproximateCallGraphsIDEServices}. In the face of JavaScript's
+dynamism, they eschew soundness, instead focusing on the efficient construction
+of approximate call graphs, which through empirical evaluation seem to be good
+enough in practice.
+
+Our handling of builtin functions was inspired by Ali and Lhot\'{a}k's work on
+application-only call graph construction
+\cite{ApplicationOnlyCallGraphConstruction}, in which they study the problem of
+preserving the soundness of a Java call graph in the presence of unanalyzed
+library code.
