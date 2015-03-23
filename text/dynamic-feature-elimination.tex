@@ -216,3 +216,45 @@ our eliminator on each of the 33 benchmarks mentioned in
 eliminate every call to \code{eval}.
 
 \section{Related work}
+
+Furr et al. \cite{ProfileGuidedStaticTyping} present a dynamic profiling
+approach to eliminate uses of Ruby's dynamic features like \code{eval},
+\code{send} and \code{method\_missing}, with the aim is making code more
+amenable to static analysis. They use a profiling run to gather information at
+each dynamic use site, for instance the actual arguments passed to \code{eval},
+or the actual missing methods for which \code{method\_missing} was invoked, and
+use this to replace the usage sites with specialized code for each observed
+argument (along with runtime checks to emit warnings in case the arguments used
+don't conform to the profiling run).
+
+In the wake of the studies done by Richards et al.
+\cite{DynamicBehaviorJavaScript, TheEvalThatMenDo} mentioned in the previous
+chapter, there has been some work on eliminating uses of \code{eval} in
+JavaScript. The common thread is exploiting patterns in the way \code{eval}
+tends to be used, be it for parsing JSON strings, executing third party code,
+or accessing or modifying object properties with computed names.
+
+Jensen et al.'s Unevalizer tool \cite{RemedyingTheEvalThatMenDo} integrates a
+refactoring component with a static whole-program value dataflow analysis. When
+the analysis detects dataflow into a possible call to \code{eval}, it triggers
+the refactoring component, passing in all the information it has gathered so
+far about the values of variables. Guided by knowledge of common patterns, the
+refactoring component attempts to replace the code with a static equivalent if
+possible. If so, the analysis resumes until all calls to \code{eval} are
+eliminated; if not, the tool aborts with an error. Their approach enjoys
+moderate success, but is hindered by the imprecision of their static analysis
+in various cases.
+
+Meawad et al.'s \cite{EvalBegone} Evalorizer tool instruments all calls to
+\code{eval}, intercepting and logging all the strings passed as each call site.
+For each particular call site, each argument string is taken to be valid
+JavaScript and parsed into an AST. The different ASTs are then merged together
+and generalized in different ways in order to construct a "recognizer" tree
+associated with that call site, which is then used to generate patches
+containing replacement code. The replacement code contains a runtime guard
+clause checking that the passed in argument matches the pattern observed for
+this call site -- this can be done with a regular expression in most cases. If
+it does, then safer but equivalent code is run; if not, a fallback case
+contains the original call to \code{eval} (or optionally an exception, if the
+tool is so configured). This approach turns out to be fruitful, and the patched
+code runs with minimal performance overhead.
