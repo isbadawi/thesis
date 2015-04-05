@@ -175,10 +175,10 @@ defined by earlier array-like calls in the same loop. If we're not able to
 eliminate one of these calls, for instance because it doesn't match our
 patterns exactly, then it likely isn't safe to eliminate any of the calls in
 the loop. Some of the benchmarks also have multiple such loops, with array-like
-calls in later loops depending on variables created in earlier loops. To simplify
-things, we consider this an operation on entire m-files, rather than an
-operation on individual calls. If we're not able to eliminate every array-like
-call in a file, then we abort without making any changes.
+calls in later loops depending on variables created in earlier loops. To
+simplify things, we consider this an operation on entire m-files, rather than
+an operation on individual calls or loops. If we're not able to eliminate every
+array-like call in a file, then we abort without making any changes.
 
 More generally, array-like calls to \code{eval} create many variables, which
 are then unified into array variables in the transformed code. If code after
@@ -197,7 +197,7 @@ definition of a variable named \code{X13} back to an array-like call to
 Finally, as mentioned in \secref{sec:Eval}, if \code{eval} encounters an error
 while evaluating its argument, that error is silently ignored. Thus, if an
 array-like call to \code{eval} has an off-by-one error in its logic, for
-instance, that error would be swallowed, by when we reify the argument into
+instance, that error would be swallowed, but when we reify the argument into
 real code, that error might manifest at runtime as an array access out of
 bounds error. While we don't expect such code to rely on the error semantics of
 \code{eval}, the transformation wouldn't be semantics preserving if we simply
