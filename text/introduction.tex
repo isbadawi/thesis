@@ -26,8 +26,7 @@ provided by the \mclab compiler toolkit. In addition to providing many
 traditional IDE features such as easy code navigation and support for
 refactorings, McIDE also aims to improve the state of \matlab code in the wild,
 be it in terms of performance, complexity, or amenableness to static analysis,
-by recognizing common anti-patterns in \matlab code and warning about them, or
-automatically eliminating them in some cases.
+by recognizing common anti-patterns in \matlab code and warning about them.
 
 \section{Contributions}
 
@@ -61,10 +60,6 @@ code harder to reason about. We describe the semantics of these features in
 detail, and report the results of a study of a large corpus of \matlab code,
 investigating the usage patterns of these features.
 
-\item[Techniques for eliminating dynamic features:] Exploiting the findings of
-the aforementioned study, we present some techniques for automatically
-transforming code away from using these features in some common cases.
-
 \item[An open implementation:] McIDE is developed fully in the open, on top of
   the open source \mclab compiler toolkit for \matlab. Some of the reusable
   infrastructure pieces, such as the layout preserving transformation engine,
@@ -93,10 +88,7 @@ preserving program transformation library, which is used to implement the
 mechanics of the refactoring transformations supported by McIDE.
 
 \item \chapref{chap:DynamicFeatureSurvey} presents our investigation into the
-usage of \matlab's dynamic features, and
-\chapref{chap:DynamicFeatureElimination} follows up with techniques to
-automatically eliminate uses of these features where simpler alternatives
-exist.
+usage of \matlab's dynamic features.
 
 \end{itemize}
 

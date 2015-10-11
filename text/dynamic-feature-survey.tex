@@ -27,9 +27,7 @@ their usage. Similar invstigations for other dynamic programming languages such
 as JavaScript \cite{TheEvalThatMenDo} and Ruby \cite{ProfileGuidedStaticTyping}
 have shown that in practice, such dynamic features tend to be used in very
 restricted ways which aren't actually difficult to reason about statically,
-and we find that the same holds for \matlab. We then present, in the following
-chapter, some approaches towards transforming code using these features to
-equivalent code that is more amenable to static analysis.
+and we find that the same holds for \matlab.
 
 \section{\mcbench}
 
@@ -501,7 +499,64 @@ We find 20 calls to \code{addpath} across 16 benchmarks, 4 calls to
 the one-argument form replacing the path. We find no calls to
 \code{restoredefaultpath} or \code{savepath}.
 
+\section{Motivation for eliminating uses of dynamic features}
+
+While dynamic features are very powerful, for instance enabling metaprogramming
+techniques that aren't otherwise possible, they are also have many drawbacks.
+
+\subsection{Impact on static analysis and program comprehension}
+
+Compilers and related tools rely on various static analyses to estimate the
+runtime behavior of programs. Such analyses are typically conservative,
+preferring to deduce weaker properties that are guaranteed to always hold for
+all inputs over stronger properties that might not always hold, even if the
+latter would be more useful. This ensures the soundness of any ensuing program
+transformations (such as optimizations) predicated on those analyses.
+
+Highly dynamic features tend to confuse traditional static analysis techniques.
+For example, a call to \code{eval} can have nearly arbitrary side effects.
+Without knowing the exact values passed as arguments -- information which is
+rarely knowable statically -- encountering a call to \code{eval} forces a
+conservative analysis to invalidate all the knowledge it has gathered thus far
+and fall back on safe assumptions. As clients consume the analysis information,
+this imprecision leads to missed optimization opportunities in compilers,
+crippled code navigation features in IDEs, and spurious warnings in static
+analyzers, among others.
+
+\code{eval} is an easy example to pick on, being the most general and powerful
+dynamic construct, but other dynamic features also lead to imprecision.
+Changing the function lookup path obsoletes static information gathered about
+the call graph. Reaching into another function's workspace and assigning to a
+variable invalidates information about identifier lookup, making it hard to
+distinguish between array accesses and function calls. Loading data via calls
+to the \code{load} function complicates reasoning about the shapes of arrays.
+
+\subsection{Performance}
+
+One of the main observations of this section is that many uses of dynamic
+features are completely superfluous, and could be equivalently written using
+simpler, less powerful constructs of the language. In those cases, it makes
+sense to consider the performance characteristics of the two approaches.
+
+As an example, one of the principal patterns identified concerns using repeated
+calls to the \code{eval} family of functions in a loop in lieu of using arrays.
+The code in \lstref{Lst:EvalNoArray} calls \code{eval}, invoking the full
+machinery of the interpreter, no fewer than eight times per loop iteration,
+even though each of these could be replaced by two or three array operations.
+This has a huge impact on performance. As a preliminary test, we manually
+replaced each call to \code{eval} in that benchmark with equivalent code using
+arrays. The transformed benchmark achieved a 56x speedup over the original.
+
+Beyond interpreter overhead, code that restricts itself to features that are
+easier to reason about statically is apt to be better understood by compilers,
+which rely on sophisticated static analysis to identify candidates for
+optimization. This is not irrelevant; several \matlab compilers exist, and
+recent versions of the proprietary \matlab implementation include a JIT
+compiler. % TODO(isbadawi): Could cite things here
+
 \section{Related work}
+
+\subsection{Dynamic feature survey}
 
 This study is inspired in part by Furr et al.'s work on profile-guided static
 typing for Ruby \cite{ProfileGuidedStaticTyping}, where one of the major
@@ -516,3 +571,47 @@ metrics. The same is unfortunately not true in our case; although we have easy
 access to a large body of \matlab code, it is not trivial in general to
 determine how to execute it, which is why we had to restrict ourselves to
 static metrics.
+
+\subsection{Dynamic feature elimination}
+
+Furr et al. \cite{ProfileGuidedStaticTyping} present a dynamic profiling
+approach to eliminate uses of Ruby's dynamic features like \code{eval},
+\code{send} and \code{method\_missing}, with the aim is making code more
+amenable to static analysis. They use a profiling run to gather information at
+each dynamic use site, for instance the actual arguments passed to \code{eval},
+or the actual missing methods for which \code{method\_missing} was invoked, and
+use this to replace the usage sites with specialized code for each observed
+argument (along with runtime checks to emit warnings in case the arguments used
+don't conform to the profiling run).
+
+In the wake of the abovementioned studies conducted by Richards et al.
+\cite{DynamicBehaviorJavaScript, TheEvalThatMenDo}, there has been some work on
+eliminating uses of \code{eval} in JavaScript. The common thread is exploiting
+patterns in the way \code{eval} tends to be used, be it for parsing JSON
+strings, executing third party code, or accessing or modifying object
+properties with computed names.
+
+Jensen et al.'s Unevalizer tool \cite{RemedyingTheEvalThatMenDo} integrates a
+refactoring component with a static whole-program value dataflow analysis. When
+the analysis detects dataflow into a possible call to \code{eval}, it triggers
+the refactoring component, passing in all the information it has gathered so
+far about the values of variables. Guided by knowledge of common patterns, the
+refactoring component attempts to replace the code with a static equivalent if
+possible. If so, the analysis resumes until all calls to \code{eval} are
+eliminated; if not, the tool aborts with an error. Their approach enjoys
+moderate success, but is hindered by the imprecision of their static analysis
+in various cases.
+
+Meawad et al.'s \cite{EvalBegone} Evalorizer tool instruments all calls to
+\code{eval}, intercepting and logging all the strings passed as each call site.
+For each particular call site, each argument string is taken to be valid
+JavaScript and parsed into an AST. The different ASTs are then merged together
+and generalized in different ways in order to construct a "recognizer" tree
+associated with that call site, which is then used to generate patches
+containing replacement code. The replacement code contains a runtime guard
+clause checking that the passed in argument matches the pattern observed for
+this call site -- this can be done with a regular expression in most cases. If
+it does, then safer but equivalent code is run; if not, a fallback case
+contains the original call to \code{eval} (or optionally an exception, if the
+tool is so configured). This approach turns out to be fruitful, and the patched
+code runs with minimal performance overhead.

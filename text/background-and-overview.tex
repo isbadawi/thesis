@@ -192,16 +192,18 @@ result of the command in the shell.
 
 A big theme of McIDE's implementation is the reliance on runtime information,
 since precise static information is often difficult to come by if we wish to
-handle arbitrary \matlab code. A few different components, such as the call
-graph generator described in \chapref{chap:DynamicCallGraphConstruction}, work
-by executing instrumented versions of the project code.
+handle arbitrary \matlab code. When a project is created or imported, McIDE
+automatically creates a special file called \code{mcide_entry_point.m}, in
+which the user is asked to implement a function that exercises as much of the
+project's code as possible. Periodically, and also in response to certain user
+actions, a profiling run is triggered, in the form of a "profile" request sent
+off to the server. In response, an instrumented version of the project is
+created via a source-to-source transformation, and the entry point function is
+invoked (via the same mechanism used to implement the \matlab shell) to gather
+runtime information.
 
-When a project is created or imported, McIDE automatically creates a special
-file called \code{mcide_entry_point.m}, in which the user is asked to implement
-a function that exercises as much of the project's code as possible.
-Periodically, and also in response to certain user actions, a profiling run is
-triggered, in the form of a "profile" request sent off to the server. In
-response, an instrumented version of the project is created via a
-source-to-source transformation, and the entry point function is invoked (via
-the same mechanism used to implement the \matlab shell) to gather various bits
-of information, including call targets, variable types, and more.
+Currently, the main user of this mechanism is the the dynamic call graph
+generator described in \chapref{chap:DynamicCallGraphConstruction}, where the
+profiling run records the targets of each call site, but the same mechanism
+could be used to gather, for instance, runtime types, or performance profiling
+information.
