@@ -67,7 +67,7 @@ the evaluation of arbitrary strings as code via calls to the \code{eval} family
 of functions, and a function lookup mechanism that involves crawling the
 filesystem at runtime -- starting from a current directory that can be changed
 at runtime -- in search of applicable call targets. More attention is paid to
-these in \chapref{chap:DynamicFeatureElimination}.
+these in \chapref{chap:DynamicFeatureSurvey}.
 
 \section{Call graph tracing instrumentation}
 
@@ -503,7 +503,7 @@ direction inside the \mclab framework in the form of an intraprocedural
 implementation we completed.
 
 The handle propagation analysis aims to compute, at each program point, which
-variable possibly contain function handles. It's common to characterize
+variables possibly contain function handles. It's common to characterize
 \matlab as a language where everything is a matrix -- even a scalar value is
 actually a 1x1 matrix. Function handles, however, are not matrices. Broadly,
 we distinguish between handles and structured data such as arrays, structs
