@@ -113,7 +113,7 @@ loop.
 % We run queries like //ParameterizedExpr[is_call('...')] but need also
 % NameExpr...
 
-\section{\code{eval} and variants} \label{sec:Eval}
+\section{\texttt{eval} and variants} \label{sec:Eval}
 
 The \code{eval} function evaluates \matlab code passed to it as a string. This
 code is almost arbitrary, and can have side-effects, such as the creation of
@@ -237,7 +237,7 @@ In one case, this is used to distinguish between \matlab versions; the first
 argument is a string literal containing a call to a builtin function, but with
 a signature valid only for \matlab 6.0 or later.
 
-\subsection{\code{evalc}}
+\subsection{\texttt{evalc}}
 
 The \code{evalc} function behaves similarly to \code{eval}, but also captures
 any command window output from the evaluation and returns it as a character
@@ -250,7 +250,7 @@ immediately passed to \code{fprintf}. The one legitimate use involves capturing
 and parsing the output of the \matlab built-in \code{dbtype} function, which
 only displays its output instead of returning it.
 
-\subsection{\code{feval}}
+\subsection{\texttt{feval}}
 
 The \code{feval} function takes a function --- either a function handle or a
 name as a string --- and a variable number of arguments, and evaluates that
@@ -288,7 +288,7 @@ manipulating these workspaces via the builtin functions \code{clear},
 
 % TODO(isbadawi): Need more takeaways from here on, not just numbers
 
-\subsection{\code{evalin} and \code{assignin}}
+\subsection{\texttt{evalin} and \texttt{assignin}}
 
 The \code{evalin} function behaves similarly to \code{eval}, but takes an extra
 parameter indicating the workspace in which the evaluation should happen. This
@@ -334,7 +334,7 @@ case.
 
 \end{itemize}
 
-\subsection{\code{clear} and \code{clearvars}}
+\subsection{\texttt{clear} and \texttt{clearvars}}
 
 The \code{clear} function is used to remove items from the current workspace,
 and providing they're not declared global, freeing them from memory. When
@@ -390,7 +390,7 @@ is given in \lstref{Lst:Clear}. This yields 950 occurrences across
 \matlab supports dynamic introspection via the \code{exist}, \code{who} and
 \code{whos} functions.
 
-\subsection{\code{exist}}
+\subsection{\texttt{exist}}
 
 The former takes an identifier as a string and checks whether it exists, and if
 so what its kind is -- variable, path, MEX-file, Simulink model, builtin,
@@ -435,13 +435,15 @@ significant way.
 ]
 \end{lstlisting}
 
-\subsection{\code{who} and \code{whos}}
+\subsection{\texttt{who} and \texttt{whos}}
 
 The \code{who} function can be used to list variables, either in the current
 workspace, a given m-file, or the global scope. The \code{whos} variant behaves
 similarly but also includes information about the sizes and types of each
-variable. These functions turn out not to be as popular, with only 4 calls to
-the former and 23 to the latter.
+variable. These functions are useful during interactive development at the
+command prompt, but, perhaps unsurprisingly, they turn out not to be as popular
+inside functions and scripts, with only 4 calls to the former and 23 to the
+latter.
 
 \section{Lookup path modification}
 

@@ -414,7 +414,7 @@ described in the following section.
   odeRK4      & 7 (4) & 7 (4) & 5 (4) & 5 (4) \\ \hline
   sim\_anl    & 19 (8) & 12 (8) & 4 (2) & 4 (2) \\ \hline
 \end{tabular}
-\caption{Instrumentable expressions in each benchmark.}
+\caption{Instrumentable expressions in each benchmark. The number in each cell represents the number of expressions instrumented for a given benchmark by a given version of our approach, with the number in parentheses denoting how many of those appear inside loops.}
 \label{tab:InstrumentationBenchmarksInstrumentable}
 \end{table}
 
@@ -715,6 +715,7 @@ distinguish just two cases for $S$.
 \end{itemize}
 
 \begin{table}
+\begin{center}
 \begin{tabular}{l | l l}
   Assignment & $out(id)$ & \\ \hline
   $id = E$ & $gen(E)$ & \\ \hline
@@ -725,8 +726,10 @@ distinguish just two cases for $S$.
 \end{tabular}
 \caption{Handle propagation analysis rules for assignments.}
 \label{tab:HandleStmtRules}
+\end{center}
 \end{table}
 
+\subsubsection{Application of handle propagation analysis}
 % TODO(isbadawi): example here
 
 % TODO(isbadawi): Maybe revisit this?

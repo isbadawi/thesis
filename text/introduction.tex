@@ -1,11 +1,11 @@
-\matlab is a popular dynamic programming language used for scientific and
-numerical programming. It has a very large (and growing) user base, especially
-in education, research and engineering applications. A key aspect contributing
-to the language's appeal is its accessibility; features like a read-eval-print
-loop, dynamic typing, compact and familiar syntax for manipulating arrays and
-matrices, easy plotting, access to efficient libraries for many problem domains
-and extensive online documentation make \matlab a good language for
-prototyping.
+{\sc Matlab}\textsuperscript{\textregistered} is a popular dynamic programming
+language used for scientific and numerical programming. It has a very large
+(and growing) user base, especially in education, research and engineering
+applications. A key aspect contributing to the language's appeal is its
+accessibility; features like a read-eval-print loop, dynamic typing, compact
+and familiar syntax for manipulating arrays and matrices, easy plotting, access
+to efficient libraries for many problem domains and extensive online
+documentation make \matlab a good language for prototyping.
 
 Despite all this, \matlab has its warts. Initially conceived as a simple way
 for students to use \fortran linear algebra libraries without having to learn
@@ -22,8 +22,8 @@ of a very high quality.
 
 This thesis reports on the design and implementation of McIDE, an integrated
 development environment for \matlab implemented on top of infrastructure
-provided by the \mclab compiler toolkit. In addition to providing many
-traditional IDE features such as easy code navigation and support for
+provided by the \mclab compiler toolkit \cite{McLab}. In addition to providing
+many traditional IDE features such as easy code navigation and support for
 refactorings, McIDE also aims to improve the state of \matlab code in the wild,
 be it in terms of performance, complexity, or amenableness to static analysis,
 by recognizing common anti-patterns in \matlab code and warning about them.
@@ -73,9 +73,9 @@ investigating the usage patterns of these features.
 
 The rest of the thesis is structured as follows.
 \chapref{chap:BackgroundAndOverview} provides some necessary background
-information and describes the overall structure of our IDE. The next five
-chapters comprise four relatively independent deep dives into its different
-components.
+information and describes the overall structure of our IDE. The next three
+chapters comprise largely independent in-depth explorations into its
+different components.
 
 \begin{itemize}
 
