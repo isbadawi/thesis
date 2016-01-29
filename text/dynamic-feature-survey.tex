@@ -159,7 +159,7 @@ concatenation in the last statement of the loop. The many intermediate
 variables created along the way are not referenced again after the loop.
 
 We will call such calls \emph{array-like}; array-like calls to \code{eval} can
-almost always refactored to use arrays, cell arrays or structures.
+almost always be refactored to use arrays, cell arrays or structures.
 
 \lstinputlisting[
   language=Matlab,
@@ -176,7 +176,7 @@ descendents either calls to \code{num2str} or \code{int2str} where the argument
 is the loop variable, or calls to \code{sprintf} where the loop variable
 appears somewhere. This is difficult to express in XPath, so we cheat a little
 by introducing an extension function called \code{loopvars()}, which computes
-the set of loop variables names in the current context by walking up the AST,
+the set of loop variable names in the current context by walking up the AST,
 finding for statements and inspecting their header. The resulting query is
 given in \lstref{Lst:QueryEvalLoopIndex}, reports 300 occurrences across 33
 benchmarks, or nearly a third of all calls to \code{eval}.
@@ -503,7 +503,7 @@ the one-argument form replacing the path. We find no calls to
 \section{Motivation for eliminating uses of dynamic features}
 
 While dynamic features are very powerful, for instance enabling metaprogramming
-techniques that aren't otherwise possible, they are also have many drawbacks.
+techniques that aren't otherwise possible, they also have many drawbacks.
 
 \subsection{Impact on static analysis and program comprehension}
 
@@ -604,7 +604,7 @@ moderate success, but is hindered by the imprecision of their static analysis
 in various cases.
 
 Meawad et al.'s \cite{EvalBegone} Evalorizer tool instruments all calls to
-\code{eval}, intercepting and logging all the strings passed as each call site.
+\code{eval}, intercepting and logging all the strings passed at each call site.
 For each particular call site, each argument string is taken to be valid
 JavaScript and parsed into an AST. The different ASTs are then merged together
 and generalized in different ways in order to construct a "recognizer" tree

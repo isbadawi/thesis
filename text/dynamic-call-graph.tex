@@ -432,7 +432,7 @@ meaning of the "Better runtime" is given in the following section.
 For the naive instrumentation described thus far, we see that the slowdown can
 be extreme for some benchmarks, with six of the benchmarks (capr, carni, dich,
 diff, fiff and mbrt) undergoing a three order of magnitude slowdown. All of
-these in the numerical category, and can be optimized. The functional
+these are in the numerical category, and can be optimized. The functional
 benchmarks all see a slowdown between one and two orders of magnitude. While
 we're able to optimize them slightly, they tend to stay within the same order
 of magnitude.
@@ -626,7 +626,7 @@ We consider the following cases for $E$.
     no arguments are passed. Thus $E$ is either a variable access, or a call to
     named function. The kind analysis is enough to distinguish between the two
     cases. If it's a variable, we simply propagate forward whatever information
-    we had (rule (3)). If it's call to a function with has an entry in $info$,
+    we had (rule (3)). If it's a call to a function with has an entry in $info$,
     we use it (rule (4)). Otherwise, it's a call to an unknown function which
     might return anything, so we use $\top$ (rule (5)).
 
@@ -788,7 +788,7 @@ functions whose names conflict with builtin functions. In \matlab, a function's
 name is the name of the file it's defined in (less the extension), so this is
 just a simple filesystem traversal. Then, during instrumentation, when we
 encounter a potential call to a builtin function, we check whether the name of
-function appears in $A$. If it doesn't, then we can safely avoid instrumenting
+the function appears in $A$. If it doesn't, then we can safely avoid instrumenting
 the call. One assumption here is that we have access to all the code the user
 is apt to run; this is not unreasonable, given that the user is requesting a
 call graph, and so is likely willing to provide all the relevant code.
@@ -808,7 +808,7 @@ with the regular function call syntax was not added until the release of
 alternative syntax for a function call. We therefore instrument all calls to
 \code{feval}.
 
-As as aside, in \secref{sec:CallgraphBuiltins}, we discussed the complications
+As an aside, in \secref{sec:CallgraphBuiltins}, we discussed the complications
 caused by instrumenting calls to builtin functions. Even though we decide here
 not to instrument direct calls to builtins, those complications still arise,
 because function handles can point to builtin functions, and in those cases the
@@ -897,7 +897,7 @@ bottlenecks.
 
     In addition to the usual \code{'w'} and \code{'a'} writing modes,
     \matlab's \code{fopen} function also accepts \code{'W'} and \code{'A'},
-    which behave similarly to their lowercase couterparts, except that the
+    which behave similarly to their lowercase counterparts, except that the
     output buffer is not flushed until it either reaches capacity or the file
     is closed (via the \code{fclose} function). Simply making this one
     character change in the \code{mclab\_callgraph\_init} functions leads to
@@ -905,7 +905,7 @@ bottlenecks.
 
   \item Function calls in \matlab are quite expensive. The
     \code{mclab\_callgraph\_log\_then\_run} calls \code{mclab\_callgraph\_log}
-    to do the writing -- inlining this call leads to significant performance
+    to do the writing -- inlining this call leads to a significant performance
     boost.
 
 \end{itemize}

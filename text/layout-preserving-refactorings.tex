@@ -23,14 +23,14 @@ compromising their practicality for end-users.
 Setting aside questions of semantics preservation, a refactoring is most
 naturally thought of as a transformation on abstract syntax trees. For
 instance, a refactoring like Extract Method can be boiled down to high-level
-steps these:
+steps like these:
 
 \begin{enumerate}
   \item Synthesize a new function with the provided name
   \item Move the selected sequence of statements from the target function to
     the new function
   \item For each variable which is live at the input of the new function, add a
-    corresponding input parameter to the function (or possibly or a global
+    corresponding input parameter to the function (or possibly a global
     variable declaration)
   \item For each variable which is live at the end of the new function, add a
     corresponding output parameter to the function
@@ -215,7 +215,7 @@ they wouldn't have the necessary position information.
 
 In the interest of keeping the API surface small, we instead implement a
 tokenizing pretty printer, which is a version of the pretty printer that emits
-sequences of tokens instead of entire strings. This can implemented as a
+sequences of tokens instead of entire strings. This can be implemented as a
 straightforward recursive traversal of the AST; for each node, we synthesize a
 sequence of tokens, and at the same time associate that sequence with the node
 for later use.
@@ -452,7 +452,7 @@ AST operations, and the new implementation against the Transformer API.}
 \label{Fig:InlineVariableComparison}
 \end{figure}
 
-The Extract Function refactoring slightly more involved.
+The Extract Function refactoring is slightly more involved.
 \figref{Fig:ExtractFunction} shows how the mechanics of the transformations are
 implemented against the transformation API. Even though the refactoring moves
 AST nodes around, copies nodes, and mixes in synthetic code with the original
@@ -501,7 +501,7 @@ lower-level API for describing text manipulation primitives, and a higher-level
 AST rewriting API, which accepts descriptions of changes to AST nodes and uses
 the text manipulation API to try and perform the textual changes required to
 represent the AST changes. The approach is similar to ours in spirit; one big
-difference is that since that our approach is implemented largely as a
+difference is that since our approach is implemented largely as a
 standalone tool, we rely solely on lexing and parsing as primitives, while
 Eclipse's implementation benefits from more sophisticated integration with a
 scriptable text editor.
