@@ -97,7 +97,7 @@ API. Behind the scenes, the implementation of the API includes logic that keeps
 track of the input program text in addition to the AST, and keeps the two in
 sync.
 
-\section{The transformation API}
+\section{The transformation API} \label{sec:TransformationAPI}
 
 Intuitively, all AST manipulation can be boiled down to a series of node
 deletions and insertions. A replace operation is also convenient, and as we
@@ -438,6 +438,13 @@ refactoring (skipping over the portions of the code dealing with the
 correctness of the transformation), followed by an equivalent implementation against
 the transformation API.
 
+This comparison shows that the changes required to adapt this refactoring and
+make it layout-preserving are minimal. The resulting code is also arguably
+clearer, with the low-level AST manipulation replaced with calls to methods
+with intention revealing names, so that these changes are not particularly
+invasive either; they are the sort of reasonable transformations a programmer
+might make while refactoring his code for clarity.
+
 % TODO(isbadawi): Add before-after figure, showing ASTs and token streams.
 
 \begin{figure}
@@ -467,16 +474,40 @@ Transformer} to do the heavy lifting.
 
 \section{Related work}
 
+\subsection{HaRe}
+
 The work that most closely resembles ours is HaRe, a refactoring tool for
 Haskell \cite{HaRe}. It uses a similar approach of synchronizing an AST with a
 token stream; program analyses are carried out using the AST, but program
 transformations are carried out on the token stream alongside the AST, and
-source positions are used to bridge the two. Rather than using a tokenizing
-pretty printer for synthesized code, the output of the regular pretty printer
-is used, together with a scheme where the concatenated tokens are re-lexed to
-obtain correct positions which are then used to update the position information
-of existing AST nodes. Similar heuristics for associating comments with program
-structures are also presented.
+source positions are used to bridge the two.
+
+Rather than using a tokenizing pretty printer for synthesized code, the output
+of the regular pretty printer is used, together with a scheme where the
+concatenated tokens are re-lexed to obtain correct positions which are then
+used to update the position information of existing AST nodes.
+
+Similar heuristics for associating comments with program structures are also
+presented.
+
+There are some extra constraints that apply for Haskell programs, as these can
+be written in a layout-sensitive style where indentation is significant, so
+that care must be taken to ensure that the new code is behaviorally equivalent
+to the original after it has gone through the layout preservation machinery. To
+address this, an explicit "layout adjustment" algorithm is presented which is
+run after each refactoring, adding or removing whitespace as needed to restore
+the meaning of the input program.
+
+The API exposed by HaRe for carrying out transformations is quite a bit larger
+than ours, as each of adding code, removing code and updating existing code is
+handled by a family of functions that deal with different AST node types --
+whereas, as described in \secref{sec:TransformationAPI}, one of our design
+goals was to minimize the API surface, so that existing refactorings could be
+updated to be layout-preserving without much effort expended in rewriting. This
+difference might just be a consequence of the underlying differences in parsing
+tools and AST representations that our implementations are built on top of.
+
+\subsection{Other approaches}
 
 De Jonge and Visser \cite{AlgorithmForLayoutPreservation} present an algorithm
 for layout preservation in refactoring transformations. While the token stream
