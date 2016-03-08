@@ -9,7 +9,7 @@ ps: thesis.ps
 dvi: thesis.dvi
 
 thesis_pdfa.pdf: thesis.ps
-	ps2pdfa.sh thesis.ps thesis_pdfa.pdf
+	pdfa/ps2pdfa/ps2pdfa.sh thesis.ps thesis_pdfa.pdf
 
 thesis.pdf: thesis.ps
 	ps2pdf thesis.ps thesis.pdf
